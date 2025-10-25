@@ -33,3 +33,43 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
+
+enum ToMessage {
+	Nop,
+	Read{ 
+		filename: String, 
+		size: u32,
+	},
+	Write{
+		filename: String,
+		value: String,
+	},
+	Dir {
+		dirname: String,
+	},
+	Size {
+		filename: String,
+	},
+	Present {
+		filename: String,
+	},
+	DirAll {
+		dirname: String,
+	},
+	Get {
+		dirname: String,
+	},
+	DirAllSlash {
+		dirname: String,
+	},
+	GetSlash {
+		dirname: String,
+	}
+}
+
+enum FromMessage {
+	Read{ 
+		value: String, 
+		ret: u32,
+	}
+}
