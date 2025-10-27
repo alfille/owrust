@@ -6,22 +6,33 @@ pub trait MessageHeader {
 	
 }
 
-pub struct HeaderSend {
+struct Header {
+	field:[i32,6] ,
+}
+
+pub struct SendMessage {
 	version: u32,
 	payload: u32,
 	mtype:   u32,
 	flags:   u32,
 	offset:  u32,
+	content: Vec<u8>,
 }
 
-pub struct HeaderReceive {
+pub struct ReceiveMessage {
 	version: u32,
 	payload: u32,
 	ret:     u32,
 	flags:   u32,
 	offset:  u32,
+	content: Vec<u8>,
 }
 
+impl ReceiveMessage {
+	fn TestVersion()->bool {
+		true
+	}
+}
 
 #[cfg(test)]
 mod tests {
@@ -33,6 +44,17 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
+
+const NOP:         i32 = 1 ;
+const READ:        i32 = 2 ;
+const WRITE:       i32 = 3 ;
+const DIR:         i32 = 4 ;
+const SIZE:        i32 = 5 ;
+const PRESENT:     i32 = 6 ;
+const DIRALL:      i32 = 7 ;
+const GET:         i32 = 8 ;
+const DIRALLSLASH: i32 = 9 ;
+const GETSLASH:    i32 = 10 ;
 
 enum ToMessage {
 	Nop,
@@ -67,9 +89,64 @@ enum ToMessage {
 	}
 }
 
+pub const DEVICE_F_I:  u32 = 0x00000000 ;
+pub const DEVICE_FI:   u32 = 0x01000000 ;
+pub const DEVICE_F_I_C:u32 = 0x02000000 ;
+pub const DEVICE_F_IC: u32 = 0x03000000 ;
+pub const DEVICE_FI_C: u32 = 0x04000000 ;
+pub const DEVICE_FIC:  u32 = 0x05000000 ;
+
+pub const TEMPERATURE_C: u32 = 0x00000000 ;
+pub const TEMPERATURE_F: u32 = 0x00010000 ;
+pub const TEMPERATURE_K: u32 = 0x00020000 ;
+pub const TEMPERATURE_R: u32 = 0x00030000 ;
+
+pub const PRESSURE_MBAR: u32 = 0x00000000 ;
+pub const PRESSURE_ATM:  u32 = 0x00040000 ;
+pub const PRESSURE_MMHG: u32 = 0x00080000 ;
+pub const PRESSURE_INHG: u32 = 0x000C0000 ;
+pub const PRESSURE_PSI:  u32 = 0x00100000 ;
+pub const PRESSURE_PA:   u32 = 0x00140000 ;
+
+pub const OWNET_FLAG:  u32 = 0x00000100 ;
+pub const UNCACHED:    u32 = 0x00000020 ;
+pub const SAFEMODE:    u32 = 0x00000010 ;
+pub const ALIAS:       u32 = 0x00000008 ;
+pub const PERSISTENCE: u32 = 0x00000004 ;
+pub const BUS_RET:     u32 = 0x00000002 ;
+
 enum FromMessage {
-	Read{ 
-		value: String, 
-		ret: u32,
-	}
+	Nop,
+	Read{
+		value: String,
+		ret: bool, 
+	},
+	Write{
+		ret: bool,
+	},
+	Dir {
+		dirname: String,
+		eol: bool
+	},
+	Size {
+		size: u32,
+		ret: bool,
+	},
+	Present {
+		ret: bool,
+	},
+	DirAll {
+		dirname: String,
+	},
+	Get {
+		dirname: String,
+	},
+	DirAllSlash {
+		dirname: String,
+	},
+	GetSlash {
+		dirname: String,
+	},
+	Ping,
 }
+
