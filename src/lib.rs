@@ -1,13 +1,7 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
-pub trait MessageHeader {
-	
-}
+use std::ffi::CString ;
 
 struct Header {
-	field:[i32,6] ,
+	be:[i32; 6] ,
 }
 
 pub struct SendMessage {
@@ -15,8 +9,27 @@ pub struct SendMessage {
 	payload: u32,
 	mtype:   u32,
 	flags:   u32,
+	size:    u32,
 	offset:  u32,
 	content: Vec<u8>,
+}
+impl SendMessage {
+	fn load_header( &self ) -> Vec<u8> {
+		[ self.version, self.payload, self.mtype, self.flags, self.size, self.offset ]
+		.iter()
+		.flat_map( |&u| u.to_be_bytes() )
+		.collect()
+	}
+	
+	fn add_content( &mut self, dir: String ) -> Result<(),e> {
+		self.content = match Cstring::new(dir) {
+			Ok(s)=>s;
+			Err(e)=>e;
+		}
+		self.payload = self.content.len() ;
+		Ok(())
+	}
+		
 }
 
 pub struct ReceiveMessage {
@@ -24,6 +37,7 @@ pub struct ReceiveMessage {
 	payload: u32,
 	ret:     u32,
 	flags:   u32,
+	size:    u32,
 	offset:  u32,
 	content: Vec<u8>,
 }
