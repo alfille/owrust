@@ -21,12 +21,12 @@ impl SendMessage {
 		.collect()
 	}
 	
-	fn add_content( &mut self, dir: String ) -> Result<(),e> {
-		self.content = match Cstring::new(dir) {
-			Ok(s)=>s;
-			Err(e)=>e;
-		}
-		self.payload = self.content.len() ;
+	fn add_content( &mut self, dir: String ) -> Result<(),std::ffi::NulError> {
+		self.content = match CString::new(dir) {
+			Ok(s)=>s.into_bytes_with_nul(),
+			Err(e)=>return Err(e),
+		} ;
+		self.payload = self.content.len() as u32 ;
 		Ok(())
 	}
 		
