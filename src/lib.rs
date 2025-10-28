@@ -4,6 +4,45 @@ struct Header {
 	be:[i32; 6] ,
 }
 
+const NOP:         u32 = 1 ;
+const READ:        u32 = 2 ;
+const WRITE:       u32 = 3 ;
+const DIR:         u32 = 4 ;
+const SIZE:        u32 = 5 ;
+const PRESENT:     u32 = 6 ;
+const DIRALL:      u32 = 7 ;
+const GET:         u32 = 8 ;
+const DIRALLSLASH: u32 = 9 ;
+const GETSLASH:    u32 = 10 ;
+
+const SENDVERSION: u32 = 0 ;
+
+pub const DEVICE_F_I:  u32 = 0x00000000 ;
+pub const DEVICE_FI:   u32 = 0x01000000 ;
+pub const DEVICE_F_I_C:u32 = 0x02000000 ;
+pub const DEVICE_F_IC: u32 = 0x03000000 ;
+pub const DEVICE_FI_C: u32 = 0x04000000 ;
+pub const DEVICE_FIC:  u32 = 0x05000000 ;
+
+pub const TEMPERATURE_C: u32 = 0x00000000 ;
+pub const TEMPERATURE_F: u32 = 0x00010000 ;
+pub const TEMPERATURE_K: u32 = 0x00020000 ;
+pub const TEMPERATURE_R: u32 = 0x00030000 ;
+
+pub const PRESSURE_MBAR: u32 = 0x00000000 ;
+pub const PRESSURE_ATM:  u32 = 0x00040000 ;
+pub const PRESSURE_MMHG: u32 = 0x00080000 ;
+pub const PRESSURE_INHG: u32 = 0x000C0000 ;
+pub const PRESSURE_PSI:  u32 = 0x00100000 ;
+pub const PRESSURE_PA:   u32 = 0x00140000 ;
+
+pub const OWNET_FLAG:  u32 = 0x00000100 ;
+pub const UNCACHED:    u32 = 0x00000020 ;
+pub const SAFEMODE:    u32 = 0x00000010 ;
+pub const ALIAS:       u32 = 0x00000008 ;
+pub const PERSISTENCE: u32 = 0x00000004 ;
+pub const BUS_RET:     u32 = 0x00000002 ;
+
 pub struct SendMessage {
 	version: u32,
 	payload: u32,
@@ -12,8 +51,19 @@ pub struct SendMessage {
 	size:    u32,
 	offset:  u32,
 	content: Vec<u8>,
+	any_content: bool,
 }
 impl SendMessage {
+	fn setup( &mut self ) {
+		self.version = SENDVERSION ;
+		self.payload = 0 ;
+		self.mtype = NOP ;
+		self.flags = DEVICE_F_I | TEMPERATURE_C | PRESSURE_MBAR ;
+		self.size = 0 ;
+		self.offset = 0 ;
+		self.content = CString::new("").into_bytes_with_nul() ;
+	}
+	
 	fn load_header( &self ) -> Vec<u8> {
 		[ self.version, self.payload, self.mtype, self.flags, self.size, self.offset ]
 		.iter()
@@ -27,6 +77,7 @@ impl SendMessage {
 			Err(e)=>return Err(e),
 		} ;
 		self.payload = self.content.len() as u32 ;
+		self.any_content = self.payload > 0 ; 
 		Ok(())
 	}
 		
@@ -58,17 +109,6 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
-
-const NOP:         i32 = 1 ;
-const READ:        i32 = 2 ;
-const WRITE:       i32 = 3 ;
-const DIR:         i32 = 4 ;
-const SIZE:        i32 = 5 ;
-const PRESENT:     i32 = 6 ;
-const DIRALL:      i32 = 7 ;
-const GET:         i32 = 8 ;
-const DIRALLSLASH: i32 = 9 ;
-const GETSLASH:    i32 = 10 ;
 
 enum ToMessage {
 	Nop,
@@ -102,32 +142,6 @@ enum ToMessage {
 		dirname: String,
 	}
 }
-
-pub const DEVICE_F_I:  u32 = 0x00000000 ;
-pub const DEVICE_FI:   u32 = 0x01000000 ;
-pub const DEVICE_F_I_C:u32 = 0x02000000 ;
-pub const DEVICE_F_IC: u32 = 0x03000000 ;
-pub const DEVICE_FI_C: u32 = 0x04000000 ;
-pub const DEVICE_FIC:  u32 = 0x05000000 ;
-
-pub const TEMPERATURE_C: u32 = 0x00000000 ;
-pub const TEMPERATURE_F: u32 = 0x00010000 ;
-pub const TEMPERATURE_K: u32 = 0x00020000 ;
-pub const TEMPERATURE_R: u32 = 0x00030000 ;
-
-pub const PRESSURE_MBAR: u32 = 0x00000000 ;
-pub const PRESSURE_ATM:  u32 = 0x00040000 ;
-pub const PRESSURE_MMHG: u32 = 0x00080000 ;
-pub const PRESSURE_INHG: u32 = 0x000C0000 ;
-pub const PRESSURE_PSI:  u32 = 0x00100000 ;
-pub const PRESSURE_PA:   u32 = 0x00140000 ;
-
-pub const OWNET_FLAG:  u32 = 0x00000100 ;
-pub const UNCACHED:    u32 = 0x00000020 ;
-pub const SAFEMODE:    u32 = 0x00000010 ;
-pub const ALIAS:       u32 = 0x00000008 ;
-pub const PERSISTENCE: u32 = 0x00000004 ;
-pub const BUS_RET:     u32 = 0x00000002 ;
 
 enum FromMessage {
 	Nop,
