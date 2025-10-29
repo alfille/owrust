@@ -54,21 +54,31 @@ pub struct SendMessage {
 	any_content: bool,
 }
 impl SendMessage {
-	fn setup( &mut self ) {
-		self.version = SENDVERSION ;
-		self.payload = 0 ;
-		self.mtype = NOP ;
-		self.flags = DEVICE_F_I | TEMPERATURE_C | PRESSURE_MBAR ;
-		self.size = 0 ;
-		self.offset = 0 ;
-		self.content = CString::new("").into_bytes_with_nul() ;
+	fn nop()->Self {
+		Self {
+			version: SENDVERSION,
+			payload: 0,
+			mtype:   NOP,
+			flags:   DEVICE_F_I | TEMPERATURE_C | PRESSURE_MBAR,
+			size:    0,
+			offset:  0,
+			content: [].to_vec(),
+			any_content: false,
+		}
 	}
 	
-	fn load_header( &self ) -> Vec<u8> {
-		[ self.version, self.payload, self.mtype, self.flags, self.size, self.offset ]
-		.iter()
-		.flat_map( |&u| u.to_be_bytes() )
-		.collect()
+	fn read( dir: String ) -> Self
+	
+	fn to_message( &self ) -> Vec<u8> {
+		let mut ret:Vec<u8> = 
+			[ self.version, self.payload, self.mtype, self.flags, self.size, self.offset ]
+			.iter()
+			.flat_map( |&u| u.to_be_bytes() )
+			.collect() ;
+		if self.any_content {
+			ret.extend_from_slice(&self.content) ;
+		}
+		ret
 	}
 	
 	fn add_content( &mut self, dir: String ) -> Result<(),std::ffi::NulError> {
