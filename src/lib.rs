@@ -97,6 +97,22 @@ impl SendMessage {
         ret
     }
     
+    fn from_message( &mut self, fm: Vec<u8> ) -> bool {
+		self.version = u32::from_be_bytes(fm[0..3].try_into().unwrap()) ;
+		self.payload = u32::from_be_bytes(fm[4..7].try_into().unwrap()) ;
+		self.mtype   = u32::from_be_bytes(fm[8..11].try_into().unwrap()) ;
+		self.flags   = u32::from_be_bytes(fm[12..15].try_into().unwrap()) ;
+		self.size    = u32::from_be_bytes(fm[16..19].try_into().unwrap()) ;
+		self.offset  = u32::from_be_bytes(fm[20..23].try_into().unwrap()) ;
+		if self.payload > 0 {
+			self.content = fm[25..(24+self.payload as usize)].to_vec() ;
+			self.any_content = true ;
+		} else {
+			self.any_content = false ;
+		}
+		true
+	}
+    
     fn add_path( &mut self, path: String ) -> bool {
         // Add nul-terminated path (and includes null in payload size)
         self.content = match ffi::CString::new(path) {
@@ -133,7 +149,7 @@ pub struct ReceiveMessage {
 }
 
 impl ReceiveMessage {
-    fn TestVersion()->bool {
+    fn test_version()->bool {
         true
     }
 }
