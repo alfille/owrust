@@ -1,4 +1,21 @@
 use std::ffi ;
+use std::net ;
+
+pub struct Parameter {
+	owserver: String,
+	temperature: String,
+	pressure: String,
+}
+
+impl Parameter {
+	fn new() -> Self {
+		Parameter {
+			owserver: String::from("localhost:3404"),
+			temperature: "C".to_string(),
+			pressure: "mmHg".to_string(),
+		}
+	}
+}
 
 // Flag for types
 // -- Device format flags (mutually exclusive)
@@ -36,8 +53,6 @@ pub struct OwMessage {
     size:    u32,
     offset:  u32,
     content: Vec<u8>,
-    any_content: bool,
-    ret:     i32,
 }
 impl OwMessage {
     // Default owserver version (to owserver)
@@ -68,8 +83,6 @@ impl OwMessage {
             size:    OwMessage::DEFAULTSIZE,
             offset:  0,
             content: [].to_vec(),
-            any_content: false,
-            ret:     0,
         }
         )
     }
@@ -126,7 +139,7 @@ impl OwMessage {
             .iter()
             .flat_map( |&u| u.to_be_bytes() )
             .collect() ;
-        if self.any_content {
+        if self.content_length() > 0 {
             ret.extend_from_slice(&self.content) ;
         }
         ret
@@ -139,15 +152,18 @@ impl OwMessage {
         self.flags   = u32::from_be_bytes(fm[12..16].try_into().unwrap()) ;
         self.size    = u32::from_be_bytes(fm[16..20].try_into().unwrap()) ;
         self.offset  = u32::from_be_bytes(fm[20..24].try_into().unwrap()) ;
-        self.ret     = self.mtype as i32 ; // allows negative return codes as C errors
-        if self.payload > 0 {
-            self.content = fm[24..(24+self.payload as usize)].to_vec() ;
-            self.any_content = true ;
-        } else {
-            self.any_content = false ;
+        if self.content_length() > 0 {
+            self.content = fm[24..(24+self.content_length())].to_vec() ;
         }
         true
     }
+    
+    fn ret_code( &self ) -> i32 {
+		self.mtype as i32
+	}
+	fn content_length( &self ) -> usize {
+		self.payload as usize
+	}
     
     fn add_path( &mut self, path: String ) -> bool {
         // Add nul-terminated path (and includes null in payload size)
@@ -156,7 +172,6 @@ impl OwMessage {
             Err(_e)=>return false,
         } ;
         self.payload = self.content.len() as u32 ;
-        self.any_content = self.payload > 0 ; 
         true
     }
     
