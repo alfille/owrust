@@ -1,26 +1,5 @@
 use std::ffi ;
 
-struct Header {
-    be:[i32; 6] ,
-}
-// Message types
-const NOP:         u32 = 1 ;
-const READ:        u32 = 2 ;
-const WRITE:       u32 = 3 ;
-const DIR:         u32 = 4 ;
-const SIZE:        u32 = 5 ;
-const PRESENT:     u32 = 6 ;
-const DIRALL:      u32 = 7 ;
-const GET:         u32 = 8 ;
-const DIRALLSLASH: u32 = 9 ;
-const GETSLASH:    u32 = 10 ;
-
-// Default owserver version (to owserver)
-const SENDVERSION: u32 = 0 ;
-
-// Maximum size of returned data (pretty arbitrary but matches C implementation)
-const DEFAULTSIZE: u32 = 65536 ;
-
 // Flag for types
 // -- Device format flags (mutually exclusive)
 pub const DEVICE_F_I:  u32 = 0x00000000 ;
@@ -49,7 +28,7 @@ pub const ALIAS:       u32 = 0x00000008 ;
 pub const PERSISTENCE: u32 = 0x00000004 ;
 pub const BUS_RET:     u32 = 0x00000002 ;
 
-pub struct SendMessage {
+pub struct OwMessage {
     version: u32,
     payload: u32,
     mtype:   u32,
@@ -58,31 +37,87 @@ pub struct SendMessage {
     offset:  u32,
     content: Vec<u8>,
     any_content: bool,
+    ret:     i32,
 }
-impl SendMessage {
+impl OwMessage {
+    // Default owserver version (to owserver)
+    const SENDVERSION: u32 = 0 ;
+
+    // Maximum size of returned data (pretty arbitrary but matches C implementation)
+    const DEFAULTSIZE: u32 = 65536 ;
+
+    // Message types
+    const NOP:         u32 = 1 ;
+    const READ:        u32 = 2 ;
+    const WRITE:       u32 = 3 ;
+    const DIR:         u32 = 4 ;
+    const SIZE:        u32 = 5 ;
+    const PRESENT:     u32 = 6 ;
+    const DIRALL:      u32 = 7 ;
+    const GET:         u32 = 8 ;
+    const DIRALLSLASH: u32 = 9 ;
+    const GETSLASH:    u32 = 10 ;
+
     fn nop()-> Result<Self,()> {
         Ok(
         Self {
-            version: SENDVERSION,
+            version: OwMessage::SENDVERSION,
             payload: 0,
-            mtype:   NOP,
+            mtype:   OwMessage::NOP,
             flags:   DEVICE_F_I | TEMPERATURE_C | PRESSURE_MBAR,
-            size:    DEFAULTSIZE,
+            size:    OwMessage::DEFAULTSIZE,
             offset:  0,
             content: [].to_vec(),
             any_content: false,
+            ret:     0,
         }
         )
     }
     
-    fn read( dir: String ) -> Result<Self,String> {
-        let mut read = Self::nop().unwrap() ;
-        read.mtype = READ ;
-        if read.add_path( dir ) {
-            Ok(read)
+    fn param1( text: String, mtype: u32, msg_name: &str ) -> Result<Self,String> {
+        let mut msg = Self::nop().unwrap() ;
+        msg.mtype = mtype ;
+        if msg.add_path( text ) {
+            Ok(msg)
         } else {
-            Err(String::from("Trouble adding content to Read message"))
+            let e: String = format!("Trouble creating {} message",msg_name) ;
+            Err(e)
         }
+    }
+    
+    fn read( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::READ, "READ" )
+    }
+    fn write( dir: String, value: String ) -> Result<Self,String> {
+        let mut msg = Self::nop().unwrap() ;
+        msg.mtype = OwMessage::WRITE ;
+        if msg.add_path( dir ) && msg.add_data( value ) {
+            Ok(msg)
+        } else {
+            let e = String::from("Trouble creating WRITE message") ;
+            Err(e)
+        }
+    }
+    fn dir( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::DIR, "DIR" )
+    }
+    fn size( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::PRESENT, "PRESENT" )
+    }
+    fn present( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::PRESENT, "PRESENT" )
+    }
+    fn dirall( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::DIRALL, "DIRALL" )
+    }
+    fn get( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::GET, "GET" )
+    }
+    fn dirallslash( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::DIRALLSLASH, "DIRALLSLASH" )
+    }
+    fn getslash( dir: String ) -> Result<Self,String> {
+        OwMessage::param1( dir, OwMessage::GETSLASH, "GETSLASH" )
     }
     
     fn to_message( &self ) -> Vec<u8> {
@@ -98,26 +133,27 @@ impl SendMessage {
     }
     
     fn from_message( &mut self, fm: Vec<u8> ) -> bool {
-		self.version = u32::from_be_bytes(fm[0..3].try_into().unwrap()) ;
-		self.payload = u32::from_be_bytes(fm[4..7].try_into().unwrap()) ;
-		self.mtype   = u32::from_be_bytes(fm[8..11].try_into().unwrap()) ;
-		self.flags   = u32::from_be_bytes(fm[12..15].try_into().unwrap()) ;
-		self.size    = u32::from_be_bytes(fm[16..19].try_into().unwrap()) ;
-		self.offset  = u32::from_be_bytes(fm[20..23].try_into().unwrap()) ;
-		if self.payload > 0 {
-			self.content = fm[25..(24+self.payload as usize)].to_vec() ;
-			self.any_content = true ;
-		} else {
-			self.any_content = false ;
-		}
-		true
-	}
+        self.version = u32::from_be_bytes(fm[ 0.. 4].try_into().unwrap()) ;
+        self.payload = u32::from_be_bytes(fm[ 4.. 8].try_into().unwrap()) ;
+        self.mtype   = u32::from_be_bytes(fm[ 8..12].try_into().unwrap()) ;
+        self.flags   = u32::from_be_bytes(fm[12..16].try_into().unwrap()) ;
+        self.size    = u32::from_be_bytes(fm[16..20].try_into().unwrap()) ;
+        self.offset  = u32::from_be_bytes(fm[20..24].try_into().unwrap()) ;
+        self.ret     = self.mtype as i32 ; // allows negative return codes as C errors
+        if self.payload > 0 {
+            self.content = fm[24..(24+self.payload as usize)].to_vec() ;
+            self.any_content = true ;
+        } else {
+            self.any_content = false ;
+        }
+        true
+    }
     
     fn add_path( &mut self, path: String ) -> bool {
         // Add nul-terminated path (and includes null in payload size)
         self.content = match ffi::CString::new(path) {
             Ok(s)=>s.into_bytes_with_nul(),
-            Err(e)=>return false,
+            Err(_e)=>return false,
         } ;
         self.payload = self.content.len() as u32 ;
         self.any_content = self.payload > 0 ; 
@@ -126,9 +162,9 @@ impl SendMessage {
     
     fn add_data( &mut self, data: String ) -> bool {
         // Add data after path without nul
-        let mut dbytes = match ffi::CString::new( data ) {
+        let dbytes = match ffi::CString::new( data ) {
             Ok(s)=>s.into_bytes(),
-            Err(e)=>return false,
+            Err(_e)=>return false,
         } ;
         self.content.extend_from_slice(&dbytes) ;
         self.size = dbytes.len() as u32 ;
@@ -136,22 +172,6 @@ impl SendMessage {
         true
     }
         
-}
-
-pub struct ReceiveMessage {
-    version: u32,
-    payload: u32,
-    ret:     u32,
-    flags:   u32,
-    size:    u32,
-    offset:  u32,
-    content: Vec<u8>,
-}
-
-impl ReceiveMessage {
-    fn test_version()->bool {
-        true
-    }
 }
 
 #[cfg(test)]
@@ -164,72 +184,3 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
-
-enum ToMessage {
-    Nop,
-    Read{ 
-        filename: String, 
-        size: u32,
-    },
-    Write{
-        filename: String,
-        value: String,
-    },
-    Dir {
-        dirname: String,
-    },
-    Size {
-        filename: String,
-    },
-    Present {
-        filename: String,
-    },
-    DirAll {
-        dirname: String,
-    },
-    Get {
-        dirname: String,
-    },
-    DirAllSlash {
-        dirname: String,
-    },
-    GetSlash {
-        dirname: String,
-    }
-}
-
-enum FromMessage {
-    Nop,
-    Read{
-        value: String,
-        ret: bool, 
-    },
-    Write{
-        ret: bool,
-    },
-    Dir {
-        dirname: String,
-        eol: bool
-    },
-    Size {
-        size: u32,
-        ret: bool,
-    },
-    Present {
-        ret: bool,
-    },
-    DirAll {
-        dirname: String,
-    },
-    Get {
-        dirname: String,
-    },
-    DirAllSlash {
-        dirname: String,
-    },
-    GetSlash {
-        dirname: String,
-    },
-    Ping,
-}
-
