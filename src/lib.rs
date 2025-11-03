@@ -1,49 +1,79 @@
 use std::ffi ;
-use std::net ;
+use std::io::{self,Read,Write,ErrorKind} ;
+use std::net::TcpStream ;
+use std::time::Duration ;
 
-pub struct Parameter {
-	owserver: String,
+use clap::Parser ;
+
+/*
+owrust library is a rust module that communicates with owserver (http://owfs.org)
+This allows Dallas 1-wire devices to be used easily from rust code
+*/
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+pub struct LibraryState {
+	owserver:    String,
 	temperature: String,
-	pressure: String,
+	pressure:    String,
+	device:      String,
+	flag:        u32,
 }
 
-impl Parameter {
+impl LibraryState {
+	// Flag for types
+	// -- Device format flags (mutually exclusive)
+	const DEVICE_F_I:  u32 = 0x00000000 ;
+	const DEVICE_FI:   u32 = 0x01000000 ;
+	const DEVICE_F_I_C:u32 = 0x02000000 ;
+	const DEVICE_F_IC: u32 = 0x03000000 ;
+	const DEVICE_FI_C: u32 = 0x04000000 ;
+	const DEVICE_FIC:  u32 = 0x05000000 ;
+	// -- Temperature flags (mutually exclusive)
+	const TEMPERATURE_C: u32 = 0x00000000 ;
+	const TEMPERATURE_F: u32 = 0x00010000 ;
+	const TEMPERATURE_K: u32 = 0x00020000 ;
+	const TEMPERATURE_R: u32 = 0x00030000 ;
+	// -- Pressure flags (mutually exclusive)
+	const PRESSURE_MBAR: u32 = 0x00000000 ;
+	const PRESSURE_ATM:  u32 = 0x00040000 ;
+	const PRESSURE_MMHG: u32 = 0x00080000 ;
+	const PRESSURE_INHG: u32 = 0x000C0000 ;
+	const PRESSURE_PSI:  u32 = 0x00100000 ;
+	const PRESSURE_PA:   u32 = 0x00140000 ;
+	// -- Other independent flags
+	const OWNET_FLAG:  u32 = 0x00000100 ;
+	const UNCACHED:    u32 = 0x00000020 ;
+	const SAFEMODE:    u32 = 0x00000010 ;
+	const ALIAS:       u32 = 0x00000008 ;
+	const PERSISTENCE: u32 = 0x00000004 ;
+	const BUS_RET:     u32 = 0x00000002 ;
+
 	fn new() -> Self {
-		Parameter {
+		let mut ls = LibraryState {
 			owserver: String::from("localhost:3404"),
 			temperature: "C".to_string(),
 			pressure: "mmHg".to_string(),
+			device: "f_i".to_string(),
+			flag:   0,
+		} ;
+		ls.make_flag() ;
+		ls
+	}
+	
+	fn make_flag( &mut self ) {
+		self.flag = 0 ;
+		if let Some(first) = self.temperature.chars().next() {
+			self.flag |= match first {
+				'F' | 'f' => LibraryState::TEMPERATURE_F,
+				'K' | 'k' => LibraryState::TEMPERATURE_K,
+				'R' | 'r' => LibraryState::TEMPERATURE_R,
+				_ => LibraryState::TEMPERATURE_C,
+			}
 		}
 	}
 }
 
-// Flag for types
-// -- Device format flags (mutually exclusive)
-pub const DEVICE_F_I:  u32 = 0x00000000 ;
-pub const DEVICE_FI:   u32 = 0x01000000 ;
-pub const DEVICE_F_I_C:u32 = 0x02000000 ;
-pub const DEVICE_F_IC: u32 = 0x03000000 ;
-pub const DEVICE_FI_C: u32 = 0x04000000 ;
-pub const DEVICE_FIC:  u32 = 0x05000000 ;
-// -- Temperature flags (mutually exclusive)
-pub const TEMPERATURE_C: u32 = 0x00000000 ;
-pub const TEMPERATURE_F: u32 = 0x00010000 ;
-pub const TEMPERATURE_K: u32 = 0x00020000 ;
-pub const TEMPERATURE_R: u32 = 0x00030000 ;
-// -- Pressure flags (mutually exclusive)
-pub const PRESSURE_MBAR: u32 = 0x00000000 ;
-pub const PRESSURE_ATM:  u32 = 0x00040000 ;
-pub const PRESSURE_MMHG: u32 = 0x00080000 ;
-pub const PRESSURE_INHG: u32 = 0x000C0000 ;
-pub const PRESSURE_PSI:  u32 = 0x00100000 ;
-pub const PRESSURE_PA:   u32 = 0x00140000 ;
-// -- Other independent flags
-pub const OWNET_FLAG:  u32 = 0x00000100 ;
-pub const UNCACHED:    u32 = 0x00000020 ;
-pub const SAFEMODE:    u32 = 0x00000010 ;
-pub const ALIAS:       u32 = 0x00000008 ;
-pub const PERSISTENCE: u32 = 0x00000004 ;
-pub const BUS_RET:     u32 = 0x00000002 ;
 
 pub struct OwMessage {
     version: u32,
@@ -58,7 +88,7 @@ impl OwMessage {
     // Default owserver version (to owserver)
     const SENDVERSION: u32 = 0 ;
 
-    // Maximum size of returned data (pretty arbitrary but matches C implementation)
+    // Maximum make_size of returned data (pretty arbitrary but matches C implementation)
     const DEFAULTSIZE: u32 = 65536 ;
 
     // Message types
@@ -73,13 +103,13 @@ impl OwMessage {
     const DIRALLSLASH: u32 = 9 ;
     const GETSLASH:    u32 = 10 ;
 
-    fn nop()-> Result<Self,()> {
+    fn make_nop(settings: &LibraryState)-> Result<Self,io::Error> {
         Ok(
         Self {
             version: OwMessage::SENDVERSION,
             payload: 0,
             mtype:   OwMessage::NOP,
-            flags:   DEVICE_F_I | TEMPERATURE_C | PRESSURE_MBAR,
+            flags:   settings.flag,
             size:    OwMessage::DEFAULTSIZE,
             offset:  0,
             content: [].to_vec(),
@@ -87,75 +117,106 @@ impl OwMessage {
         )
     }
     
-    fn param1( text: String, mtype: u32, msg_name: &str ) -> Result<Self,String> {
-        let mut msg = Self::nop().unwrap() ;
+    fn string_error(e: String) ->io::Error {
+		io::Error::new(ErrorKind::InvalidInput, e )
+	}
+    
+    fn param1( text: String, mtype: u32, msg_name: &str, settings: &LibraryState ) -> Result<Self,io::Error> {
+        let mut msg = Self::make_nop(settings).unwrap() ;
         msg.mtype = mtype ;
         if msg.add_path( text ) {
             Ok(msg)
         } else {
-            let e: String = format!("Trouble creating {} message",msg_name) ;
-            Err(e)
+            Err(OwMessage::string_error(format!("Trouble creating {} message",msg_name)))
         }
     }
     
-    fn read( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::READ, "READ" )
+    fn make_read( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::READ, "READ", settings )
     }
-    fn write( dir: String, value: String ) -> Result<Self,String> {
-        let mut msg = Self::nop().unwrap() ;
+    fn make_write( text: String, value: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        let mut msg = Self::make_nop(settings).unwrap() ;
         msg.mtype = OwMessage::WRITE ;
-        if msg.add_path( dir ) && msg.add_data( value ) {
+        if msg.add_path( text ) && msg.add_data( value ) {
             Ok(msg)
         } else {
-            let e = String::from("Trouble creating WRITE message") ;
-            Err(e)
+            Err(OwMessage::string_error(format!("Trouble creating {} message","WRITE")))
         }
     }
-    fn dir( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::DIR, "DIR" )
+    fn make_dir( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::DIR, "DIR", settings )
     }
-    fn size( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::PRESENT, "PRESENT" )
+    fn make_size( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::PRESENT, "PRESENT", settings )
     }
-    fn present( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::PRESENT, "PRESENT" )
+    fn make_present( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::PRESENT, "PRESENT", settings )
     }
-    fn dirall( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::DIRALL, "DIRALL" )
+    fn make_dirall( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::DIRALL, "DIRALL", settings )
     }
-    fn get( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::GET, "GET" )
+    fn make_get( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::GET, "GET", settings )
     }
-    fn dirallslash( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::DIRALLSLASH, "DIRALLSLASH" )
+    fn make_dirallslash( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::DIRALLSLASH, "DIRALLSLASH", settings )
     }
-    fn getslash( dir: String ) -> Result<Self,String> {
-        OwMessage::param1( dir, OwMessage::GETSLASH, "GETSLASH" )
+    fn make_getslash( text: String, settings: &LibraryState ) -> Result<Self,io::Error> {
+        OwMessage::param1( text, OwMessage::GETSLASH, "GETSLASH", settings )
     }
     
-    fn to_message( &self ) -> Vec<u8> {
-        let mut ret:Vec<u8> = 
+    fn to_message( &self, settings: &LibraryState ) -> Result<OwMessage,io::Error> {
+        let mut msg:Vec<u8> = 
             [ self.version, self.payload, self.mtype, self.flags, self.size, self.offset ]
             .iter()
             .flat_map( |&u| u.to_be_bytes() )
             .collect() ;
         if self.content_length() > 0 {
-            ret.extend_from_slice(&self.content) ;
+            msg.extend_from_slice(&self.content) ;
         }
-        ret
+
+		// Write to network
+		let mut stream = TcpStream::connect( &settings.owserver ) ? ;
+        stream.write_all( &msg ) ? ;
+        
+        let rcv = OwMessage::from_message( stream, settings ) ? ;
+        
+        Ok(rcv)
     }
     
-    fn from_message( &mut self, fm: Vec<u8> ) -> bool {
-        self.version = u32::from_be_bytes(fm[ 0.. 4].try_into().unwrap()) ;
-        self.payload = u32::from_be_bytes(fm[ 4.. 8].try_into().unwrap()) ;
-        self.mtype   = u32::from_be_bytes(fm[ 8..12].try_into().unwrap()) ;
-        self.flags   = u32::from_be_bytes(fm[12..16].try_into().unwrap()) ;
-        self.size    = u32::from_be_bytes(fm[16..20].try_into().unwrap()) ;
-        self.offset  = u32::from_be_bytes(fm[20..24].try_into().unwrap()) ;
-        if self.content_length() > 0 {
-            self.content = fm[24..(24+self.content_length())].to_vec() ;
-        }
-        true
+    fn from_message( mut stream: TcpStream, settings: &LibraryState ) -> Result<OwMessage,io::Error> {
+        let mut rcv = OwMessage::make_nop(settings) ? ;
+        static HSIZE: usize = 24 ;
+        let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
+		
+        // Set timeout
+        stream.set_read_timeout( Some(Duration::from_secs(5))) ? ;
+        
+		loop {
+			let n = stream.read( &mut buffer ) ? ;
+			if n == HSIZE {
+				rcv.version = u32::from_be_bytes(buffer[ 0.. 4].try_into().unwrap()) ;
+				rcv.payload = u32::from_be_bytes(buffer[ 4.. 8].try_into().unwrap()) ;
+				rcv.mtype   = u32::from_be_bytes(buffer[ 8..12].try_into().unwrap()) ;
+				rcv.flags   = u32::from_be_bytes(buffer[12..16].try_into().unwrap()) ;
+				rcv.size    = u32::from_be_bytes(buffer[16..20].try_into().unwrap()) ;
+				rcv.offset  = u32::from_be_bytes(buffer[20..24].try_into().unwrap()) ;
+				
+				let length = rcv.payload as i32 ;
+				if length < 0 {
+					// ping
+					continue ;
+				}
+				if length > 0 {
+					let c = stream.read( &mut rcv.content ) ? ;
+					if c != length as usize {
+						return Err(OwMessage::string_error(String::from("Receive bad payload length"))) ;
+					}
+				}
+				break ;
+			}
+		}
+		return Ok(rcv) ;
     }
     
     fn ret_code( &self ) -> i32 {
@@ -186,7 +247,57 @@ impl OwMessage {
         self.payload += self.size ;
         true
     }
-        
+    
+    fn val_to_string( &self ) -> Result<String,io::Error> {
+		if self.payload as i32 > 0 {
+			match String::from_utf8(self.content.clone()) {
+				Ok(s) => return Ok(s),
+				Err(_) => return Err(OwMessage::string_error(String::from("Value conversiion error (to String)"))),
+			}
+		}
+		Err(OwMessage::string_error(String::from("No payload")))
+	}
+    
+    fn retrieve_1_value( path: String, settings: &LibraryState, f: fn(String, &LibraryState)->Result<OwMessage,io::Error>) -> Result< String, io::Error> {
+		let msg = f( path, settings ) ? ;
+		let rcv = msg.to_message( settings ) ? ;
+		let s = rcv.val_to_string() ? ;
+		Ok(s)
+	}
+	
+    fn read(path:String, settings: &LibraryState ) -> Result<String,io::Error> {
+		OwMessage::retrieve_1_value( path, settings, OwMessage::make_read)
+	}
+    fn dir(path:String, settings: &LibraryState ) -> Result<String,io::Error> {
+		OwMessage::retrieve_1_value( path, settings, OwMessage::make_dirall)
+	}
+    fn present(path:String, settings: &LibraryState ) -> Result<bool,io::Error> {
+		let msg = OwMessage::make_present( path, settings ) ? ;
+		let rcv = msg.to_message( settings ) ? ;
+		Ok(rcv.ret_code()==0)
+	}
+    fn size(path:String, settings: &LibraryState ) -> Result<i32,io::Error> {
+		let msg = OwMessage::make_size( path, settings ) ? ;
+		let rcv = msg.to_message( settings ) ? ;
+		let ret = rcv.ret_code();
+		if ret < 0 {
+			return Err(OwMessage::string_error(String::from("Bad size")));
+		} else {
+			return Ok(ret) ;
+		}
+	}
+    fn dirall(path:String, settings: &LibraryState ) -> Result<String,io::Error> {
+		OwMessage::retrieve_1_value( path, settings, OwMessage::make_dirall)
+	}
+    fn dirallslash(path:String, settings: &LibraryState ) -> Result<String,io::Error> {
+		OwMessage::retrieve_1_value( path, settings, OwMessage::make_dirallslash)
+	}
+    fn get(path:String, settings: &LibraryState ) -> Result<String,io::Error> {
+		OwMessage::retrieve_1_value( path, settings, OwMessage::make_get)
+	}
+    fn getslash(path:String, settings: &LibraryState ) -> Result<String,io::Error> {
+		OwMessage::retrieve_1_value( path, settings, OwMessage::make_getslash)
+	}
 }
 
 #[cfg(test)]
