@@ -11,13 +11,27 @@ mod owrust {
 	use std::time::Duration ;
 
 	use clap::Parser ;
-
+	use std::path::PathBuf;
+	
 	pub fn new() -> OwClient {
+		Cli::parse() ;
 		OwClient::new()
 	}
 
 	#[derive(Parser, Debug)]
 	#[command(version, about, long_about = None)]
+	struct Cli {
+		/// Optional config file		
+		#[arg(short, long, global = true, default_value = "owfs.conf")]
+		config: PathBuf,
+		
+		/// Optional toml file		
+		#[arg(short, long, global = true, default_value = "owfs.toml")]
+		toml: PathBuf,
+		
+		
+	}
+	
 	pub struct OwClient {
 		owserver:    String,
 		temperature: String,
