@@ -91,6 +91,19 @@ pub mod owrust {
 					_ => OwClient::TEMPERATURE_C,
 				}
 			}
+			
+			if self.pressure != "" {
+				self.flag |= match &self.pressure.to_lowercase() as &str {
+					"mbar" => OwClient::PRESSURE_MBAR,
+					"atm"  => OwClient::PRESSURE_ATM ,
+					"mmhg" | "torr" => OwClient::PRESSURE_MMHG,
+					"inhg" => OwClient::PRESSURE_INHG,
+					"psi"  => OwClient::PRESSURE_PSI ,
+					"pa"   => OwClient::PRESSURE_PA  ,
+					_      => OwClient::PRESSURE_MBAR,
+				}
+			}
+					
 		}
 
 		fn make_nop(&self)-> Result<OwMessage,io::Error> {
