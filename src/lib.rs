@@ -3,7 +3,7 @@ owrust library is a rust module that communicates with owserver (http://owfs.org
 This allows Dallas 1-wire devices to be used easily from rust code
 */
 
-mod owrust {
+pub mod owrust {
 
 	use std::ffi ;
 	use std::io::{self,Read,Write,ErrorKind} ;
@@ -320,6 +320,7 @@ mod owrust {
 		
 	}
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
