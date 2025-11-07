@@ -1,4 +1,4 @@
-use owrust::owrust ;
+use owrust ;
 
 fn main() {
 	let mut owserver = owrust::new() ;
