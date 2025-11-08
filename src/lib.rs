@@ -7,7 +7,6 @@ use std::ffi ;
 use std::io::{self,Read,Write,ErrorKind} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
-use std::str::from_utf8 ;
 
 use clap::Parser ;
 use std::path::PathBuf;
@@ -125,7 +124,8 @@ impl OwClient {
 		if msg.add_path( text ) {
 			Ok(msg)
 		} else {
-			Err(OwMessage::string_error(format!("Trouble creating {} message",msg_name)))
+			let explain: String = format!("Trouble creating {} message",msg_name) ;
+			Err(OwMessage::string_error(&explain))
 		}
 	}
 	
@@ -135,7 +135,8 @@ impl OwClient {
 		if msg.add_path( text ) && msg.add_data( value ) {
 			Ok(msg)
 		} else {
-			Err(OwMessage::string_error(format!("Trouble creating {} message","WRITE")))
+			let explain: String = format!("Trouble creating {} message","WRITE") ;
+			Err(OwMessage::string_error(&explain))
 		}
 	}
 
@@ -217,20 +218,23 @@ impl OwClient {
 		
 		Ok(rcv)
 	}
-	fn retrieve_1_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessage,io::Error>) -> Result< &str, io::Error> {
+	fn retrieve_1_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessage,io::Error>) -> Result< Vec<u8>, io::Error> {
 		let msg = f( self, path ) ? ;
 		let rcv = self.to_message( msg ) ? ;
 		if rcv.content_length() > 0 {
-			return Ok(from_utf8(&rcv.content)) ;
+			let v: Vec<u8> = rcv.content.clone() ;
+			return Ok( v ) ;
 		}
-		Ok("")
+		Ok("".as_bytes().to_vec())
 	}
 	
-	pub fn read( &self, path: &str ) -> Result<&str,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_read)
+	pub fn read( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
+		let v = self.retrieve_1_value( path, OwClient::make_read) ? ;
+		Ok(&v.clone())
 	}
-	pub fn dir( &self, path: &str ) -> Result<&str,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_dirall)
+	pub fn dir( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
+		let v: Vec<u8> = self.retrieve_1_value( path, OwClient::make_dirall) ? ;
+		Ok(&v)
 	}
 	pub fn present( &self, path: &str ) -> Result<bool,io::Error> {
 		let msg = self.make_present( path ) ? ;
@@ -247,17 +251,21 @@ impl OwClient {
 			return Ok(ret) ;
 		}
 	}
-	pub fn dirall( &self, path: &str ) -> Result<&str,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_dirall)
+	pub fn dirall( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
+		let v = self.retrieve_1_value( path, OwClient::make_dirall) ? ;
+		Ok(&v)
 	}
-	pub fn dirallslash( &self, path: &str ) -> Result<&str,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_dirallslash)
+	pub fn dirallslash( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
+		let v = self.retrieve_1_value( path, OwClient::make_dirallslash) ? ;
+		Ok(&v)
 	}
-	pub fn get( &self, path: &str ) -> Result<&str,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_get)
+	pub fn get( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
+		let v = self.retrieve_1_value( path, OwClient::make_get) ? ;
+		Ok(&v)
 	}
-	pub fn getslash( &self, path: &str ) -> Result<&str,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_getslash)
+	pub fn getslash( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
+		let v = self.retrieve_1_value( path, OwClient::make_getslash) ? ;
+		Ok(&v)
 	}
 }
 
