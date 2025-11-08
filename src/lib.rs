@@ -104,8 +104,7 @@ impl OwClient {
 				
 	}
 
-	fn make_nop(&self)-> Result<OwMessage,io::Error> {
-		Ok(
+	fn new_nop(&self)-> OwMessage {
 		OwMessage {
 			version: OwMessage::SENDVERSION,
 			payload: 0,
@@ -115,11 +114,10 @@ impl OwClient {
 			offset:  0,
 			content: [].to_vec(),
 		}
-		)
 	}
 	
 	fn param1( &self, text: &str, mtype: u32, msg_name: &str ) -> Result<OwMessage,io::Error> {
-		let mut msg = self.make_nop().unwrap() ;
+		let mut msg = self.new_nop() ;
 		msg.mtype = mtype ;
 		if msg.add_path( text ) {
 			Ok(msg)
@@ -130,7 +128,7 @@ impl OwClient {
 	}
 	
 	fn make_write( &self, text: &str, value: &str ) -> Result<OwMessage,io::Error> {
-		let mut msg = self.make_nop().unwrap() ;
+		let mut msg = self.new_nop() ;
 		msg.mtype = OwMessage::WRITE ;
 		if msg.add_path( text ) && msg.add_data( value ) {
 			Ok(msg)
@@ -166,7 +164,7 @@ impl OwClient {
 	}
 	
 	fn from_message( &self, mut stream: TcpStream ) -> Result<OwMessage,io::Error> {
-		let mut rcv = self.make_nop() ? ;
+		let mut rcv = self.new_nop() ;
 		static HSIZE: usize = 24 ;
 		let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
 		
@@ -222,19 +220,17 @@ impl OwClient {
 		let msg = f( self, path ) ? ;
 		let rcv = self.to_message( msg ) ? ;
 		if rcv.content_length() > 0 {
-			let v: Vec<u8> = rcv.content.clone() ;
+			let v: Vec<u8> = rcv.content ;
 			return Ok( v ) ;
 		}
-		Ok("".as_bytes().to_vec())
+		Ok(Vec::new())
 	}
 	
-	pub fn read( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
-		let v = self.retrieve_1_value( path, OwClient::make_read) ? ;
-		Ok(&v.clone())
+	pub fn read( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		self.retrieve_1_value( path, OwClient::make_read)
 	}
-	pub fn dir( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
-		let v: Vec<u8> = self.retrieve_1_value( path, OwClient::make_dirall) ? ;
-		Ok(&v)
+	pub fn dir( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		self.retrieve_1_value( path, OwClient::make_dirall)
 	}
 	pub fn present( &self, path: &str ) -> Result<bool,io::Error> {
 		let msg = self.make_present( path ) ? ;
@@ -251,21 +247,17 @@ impl OwClient {
 			return Ok(ret) ;
 		}
 	}
-	pub fn dirall( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
-		let v = self.retrieve_1_value( path, OwClient::make_dirall) ? ;
-		Ok(&v)
+	pub fn dirall( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		self.retrieve_1_value( path, OwClient::make_dirall)
 	}
-	pub fn dirallslash( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
-		let v = self.retrieve_1_value( path, OwClient::make_dirallslash) ? ;
-		Ok(&v)
+	pub fn dirallslash( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		self.retrieve_1_value( path, OwClient::make_dirallslash)
 	}
-	pub fn get( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
-		let v = self.retrieve_1_value( path, OwClient::make_get) ? ;
-		Ok(&v)
+	pub fn get( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		self.retrieve_1_value( path, OwClient::make_get)
 	}
-	pub fn getslash( &self, path: &str ) -> Result<&Vec<u8>,io::Error> {
-		let v = self.retrieve_1_value( path, OwClient::make_getslash) ? ;
-		Ok(&v)
+	pub fn getslash( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		self.retrieve_1_value( path, OwClient::make_getslash)
 	}
 }
 
@@ -298,7 +290,7 @@ impl OwMessage {
 	const GETSLASH:    u32 = 10 ;
 
 	fn string_error(e: &str) ->io::Error {
-		io::Error::new(ErrorKind::InvalidInput, e )
+		io::Error::new(ErrorKind::Other, e )
 	}
 	
 	fn ret_code( &self ) -> i32 {
