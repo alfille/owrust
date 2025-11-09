@@ -8,33 +8,43 @@ use std::io::{self,Read,Write,ErrorKind} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
 
-use clap::Parser ;
-use std::path::PathBuf;
-
 pub fn new() -> OwClient {
-	Cli::parse() ;
 	OwClient::new()
 }
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Cli {
-	/// Optional config file		
-	#[arg(short, long, global = true, default_value = "owfs.conf")]
-	config: PathBuf,
-	
-	/// Optional toml file		
-	#[arg(short, long, global = true, default_value = "owfs.toml")]
-	toml: PathBuf,
-	
-	
+pub enum Temperature {
+	CELSIUS,
+	FARENHEIT,
+	KELVIN,
+	RANKINE,
+	DEFAULT,
+}
+
+pub enum Pressure {
+	MMHG,
+	INHG,
+	PA,
+	PSI,
+	ATM,
+	MBAR,
+	DEFAULT,
+}
+
+pub enum Device {
+	FI,
+	F_I,
+	FIC,
+	FI_C,
+	F_IC,
+	F_I_C,
+	DEFAULT,
 }
 
 pub struct OwClient {
 	owserver:    String,
-	temperature: String,
-	pressure:    String,
-	device:      String,
+	temperature: Temperature,
+	pressure:    Pressure,
+	device:      Device,
 	flag:        u32,
 }
 
@@ -68,40 +78,65 @@ impl OwClient {
 	const BUS_RET:     u32 = 0x00000002 ;
 
 	fn new() -> Self {
-		let mut ls = OwClient {
+		let mut owc = OwClient {
 			owserver: String::from("localhost:3504"),
-			temperature: "C".to_string(),
-			pressure: "mmHg".to_string(),
-			device: "f_i".to_string(),
+			temperature: Temperature::DEFAULT,
+			pressure: Pressure::DEFAULT,
+			device: Device::DEFAULT,
 			flag:   0,
 		} ;
-		ls.make_flag() ;
-		ls
+		owc.make_flag() ;
+		owc
 	}
+	
+	pub fn temperature( &mut self, temp: Temperature ) {
+		self.temperature = temp ;
+		self.make_flag() ;
+	}
+	
+	pub fn pressure( &mut self, pres: Pressure ) {
+		self.pressure = pres ;
+		self.make_flag() ;
+	}
+	
+	pub fn device( &mut self, dev: Device ) {
+		self.device = dev ;
+		self.make_flag() ;
+	}
+	
+	pub fn server( &mut self, srv: String ) {
+		self.owserver = srv.clone() ;
+	}	
 	
 	fn make_flag( &mut self ) {
 		self.flag = 0 ;
-		if let Some(first) = self.temperature.chars().next() {
-			self.flag |= match first {
-				'F' | 'f' => OwClient::TEMPERATURE_F,
-				'K' | 'k' => OwClient::TEMPERATURE_K,
-				'R' | 'r' => OwClient::TEMPERATURE_R,
-				_ => OwClient::TEMPERATURE_C,
-			}
-		}
+		self.flag |= match self.temperature {
+			Temperature::CELSIUS   => OwClient::TEMPERATURE_C,
+			Temperature::FARENHEIT => OwClient::TEMPERATURE_F,
+			Temperature::KELVIN    => OwClient::TEMPERATURE_K,
+			Temperature::RANKINE   => OwClient::TEMPERATURE_R,
+			Temperature::DEFAULT   => OwClient::TEMPERATURE_C,
+		} ;
 		
-		if self.pressure != "" {
-			self.flag |= match &self.pressure.to_lowercase() as &str {
-				"mbar" => OwClient::PRESSURE_MBAR,
-				"atm"  => OwClient::PRESSURE_ATM ,
-				"mmhg" | "torr" => OwClient::PRESSURE_MMHG,
-				"inhg" => OwClient::PRESSURE_INHG,
-				"psi"  => OwClient::PRESSURE_PSI ,
-				"pa"   => OwClient::PRESSURE_PA  ,
-				_      => OwClient::PRESSURE_MBAR,
-			}
-		}
-				
+		self.flag |= match self.pressure {
+			Pressure::MBAR => OwClient::PRESSURE_MBAR,
+			Pressure::MMHG => OwClient::PRESSURE_MMHG,
+			Pressure::INHG => OwClient::PRESSURE_INHG,
+			Pressure::ATM  => OwClient::PRESSURE_ATM ,
+			Pressure::PA   => OwClient::PRESSURE_PA,
+			Pressure::PSI  => OwClient::PRESSURE_PSI,
+			Pressure::DEFAULT => OwClient::PRESSURE_MBAR,
+		};
+		
+		self.flag |= match self.device {
+			Device::FI => OwClient::DEVICE_FI,
+			Device::F_I => OwClient::DEVICE_F_I,
+			Device::FIC => OwClient::DEVICE_FIC,
+			Device::FI_C => OwClient::DEVICE_FI_C,
+			Device::F_IC=> OwClient::DEVICE_F_IC,
+			Device::F_I_C => OwClient::DEVICE_F_I_C,
+			Device::DEFAULT => OwClient::DEVICE_F_I,
+		} ;
 	}
 
 	fn new_nop(&self)-> OwMessage {
