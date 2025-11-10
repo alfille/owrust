@@ -8,10 +8,13 @@ use std::io::{self,Read,Write,ErrorKind} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
 
+pub mod parse_args ;
+
 pub fn new() -> OwClient {
 	OwClient::new()
 }
 
+#[derive(Debug,PartialEq)]
 pub enum Temperature {
 	CELSIUS,
 	FARENHEIT,
@@ -20,6 +23,7 @@ pub enum Temperature {
 	DEFAULT,
 }
 
+#[derive(Debug,PartialEq)]
 pub enum Pressure {
 	MMHG,
 	INHG,
@@ -30,16 +34,18 @@ pub enum Pressure {
 	DEFAULT,
 }
 
+#[derive(Debug,PartialEq)]
 pub enum Device {
 	FI,
-	F_I,
+	FdI,
 	FIC,
-	FI_C,
-	F_IC,
-	F_I_C,
+	FIdC,
+	FdIC,
+	FdIdC,
 	DEFAULT,
 }
 
+#[derive(Debug)]
 pub struct OwClient {
 	owserver:    String,
 	temperature: Temperature,
@@ -93,6 +99,15 @@ impl OwClient {
 		self.temperature = temp ;
 		self.make_flag() ;
 	}
+	pub fn get_temperature( &self ) -> &str {
+		match self.temperature {
+			Temperature::CELSIUS => "Celsius",
+			Temperature::FARENHEIT => "Farenheit",
+			Temperature::KELVIN => "Kelvin",
+			Temperature::RANKINE => "Rankine",
+			Temperature::DEFAULT => "Default",
+		}
+	}
 	
 	pub fn pressure( &mut self, pres: Pressure ) {
 		self.pressure = pres ;
@@ -130,11 +145,11 @@ impl OwClient {
 		
 		self.flag |= match self.device {
 			Device::FI => OwClient::DEVICE_FI,
-			Device::F_I => OwClient::DEVICE_F_I,
+			Device::FdI => OwClient::DEVICE_F_I,
 			Device::FIC => OwClient::DEVICE_FIC,
-			Device::FI_C => OwClient::DEVICE_FI_C,
-			Device::F_IC=> OwClient::DEVICE_F_IC,
-			Device::F_I_C => OwClient::DEVICE_F_I_C,
+			Device::FIdC => OwClient::DEVICE_FI_C,
+			Device::FdIC=> OwClient::DEVICE_F_IC,
+			Device::FdIdC => OwClient::DEVICE_F_I_C,
 			Device::DEFAULT => OwClient::DEVICE_F_I,
 		} ;
 	}
@@ -264,6 +279,14 @@ impl OwClient {
 	pub fn read( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
 		self.retrieve_1_value( path, OwClient::make_read)
 	}
+	pub fn write( &self, path: &str, value: &str ) -> Result<(),io::Error> {
+		let msg = OwClient::make_write( self, path, value ) ? ;
+		let rcv = self.to_message( msg ) ? ;
+		if rcv.ret_code() == 0 {
+			return Ok( () ) ;
+		}
+		return Err(OwMessage::string_error("Write error"));
+	}
 	pub fn dir( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
 		self.retrieve_1_value( path, OwClient::make_dirall)
 	}
@@ -374,8 +397,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn new_client() {
+        let owc = OwClient::new();
+        assert_eq!(owc.temperature, Temperature::DEFAULT);
+        assert_eq!(owc.pressure, Pressure::DEFAULT);
+        assert_eq!(owc.device, Device::DEFAULT);
     }
 }
