@@ -51,6 +51,10 @@ pub struct OwClient {
 	temperature: Temperature,
 	pressure:    Pressure,
 	device:      Device,
+	size:		 u32,
+	offset:      u32,
+	slash:       bool,
+	hex:         bool,
 	flag:        u32,
 }
 
@@ -89,6 +93,10 @@ impl OwClient {
 			temperature: Temperature::DEFAULT,
 			pressure: Pressure::DEFAULT,
 			device: Device::DEFAULT,
+			size: 0,
+			offset: 0,
+			slash: false,
+			hex: false,
 			flag:   0,
 		} ;
 		owc.make_flag() ;
@@ -166,13 +174,13 @@ impl OwClient {
 		}
 	}
 	
-	fn param1( &self, text: &str, mtype: u32, msg_name: &str ) -> Result<OwMessage,io::Error> {
+	fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessage,io::Error> {
 		let mut msg = self.new_nop() ;
 		msg.mtype = mtype ;
 		if msg.add_path( text ) {
 			Ok(msg)
 		} else {
-			let explain: String = format!("Trouble creating {} message",msg_name) ;
+			let explain: String = format!("Trouble creating {} message",OwMessage::message_name(mtype)) ;
 			Err(OwMessage::string_error(&explain))
 		}
 	}
@@ -183,34 +191,34 @@ impl OwClient {
 		if msg.add_path( text ) && msg.add_data( value ) {
 			Ok(msg)
 		} else {
-			let explain: String = format!("Trouble creating {} message","WRITE") ;
+			let explain: String = format!("Trouble creating {} message",OwMessage::message_name(msg.mtype)) ;
 			Err(OwMessage::string_error(&explain))
 		}
 	}
 
 	fn make_read( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::READ, "READ" )
+		self.param1( text, OwMessage::READ )
 	}
 	fn make_dir( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::DIR, "DIR" )
+		self.param1( text, OwMessage::DIR )
 	}
 	fn make_size( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::PRESENT, "PRESENT" )
+		self.param1( text, OwMessage::SIZE )
 	}
 	fn make_present( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::PRESENT, "PRESENT" )
+		self.param1( text, OwMessage::PRESENT )
 	}
 	fn make_dirall( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::DIRALL, "DIRALL" )
+		self.param1( text, OwMessage::DIRALL )
 	}
 	fn make_get( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::GET, "GET" )
+		self.param1( text, OwMessage::GET )
 	}
 	fn make_dirallslash( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::DIRALLSLASH, "DIRALLSLASH" )
+		self.param1( text, OwMessage::DIRALLSLASH )
 	}
 	fn make_getslash( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::GETSLASH, "GETSLASH" )
+		self.param1( text, OwMessage::GETSLASH )
 	}
 	
 	fn from_message( &self, mut stream: TcpStream ) -> Result<OwMessage,io::Error> {
@@ -306,16 +314,16 @@ impl OwClient {
 		}
 	}
 	pub fn dirall( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		if self.slash {
+			return self.retrieve_1_value( path, OwClient::make_dirallslash) ;
+		}
 		self.retrieve_1_value( path, OwClient::make_dirall)
 	}
-	pub fn dirallslash( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_dirallslash)
-	}
 	pub fn get( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
+		if self.slash {
+			return self.retrieve_1_value( path, OwClient::make_getslash) ;
+		}
 		self.retrieve_1_value( path, OwClient::make_get)
-	}
-	pub fn getslash( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_getslash)
 	}
 }
 
@@ -346,6 +354,22 @@ impl OwMessage {
 	const GET:         u32 = 8 ;
 	const DIRALLSLASH: u32 = 9 ;
 	const GETSLASH:    u32 = 10 ;
+
+	fn message_name( mtype: u32 ) -> &'static str {
+		match mtype {
+			OwMessage::NOP => "NOP",
+			OwMessage::READ => "READ",
+			OwMessage::WRITE => "WRITE",
+			OwMessage::DIR => "DIR",
+			OwMessage::SIZE => "SIZE",
+			OwMessage::PRESENT => "PRESENT",
+			OwMessage::DIRALL => "DIRALL",
+			OwMessage::GET => "GET",
+			OwMessage::DIRALLSLASH => "DIRALLSLASH",
+			OwMessage::GETSLASH => "GETSLASH",
+			_ => "UNKNOWN",
+		}
+	}
 
 	fn string_error(e: &str) ->io::Error {
 		io::Error::new(ErrorKind::Other, e )
@@ -378,16 +402,6 @@ impl OwMessage {
 		self.size = dbytes.len() as u32 ;
 		self.payload += self.size ;
 		true
-	}
-	
-	fn val_to_string( &self ) -> Result<&str,io::Error> {
-		if self.payload as i32 > 0 {
-			return match str::from_utf8( &self.content ) {
-				Ok(s) => Ok(s),
-				Err(_)=>Err(OwMessage::string_error("Bad characters"))
-			} ;
-		}
-		Err(OwMessage::string_error("No payload"))
 	}
 	
 }
