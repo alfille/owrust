@@ -1,12 +1,21 @@
-/*
-owrust library is a rust module that communicates with owserver (http://owfs.org)
-This allows Dallas 1-wire devices to be used easily from rust code
-*/
+// owrust project
+// https://github.com/alfille/owrust
+//
+// This is a rust version of my C owfs code for talking to 1-wire devices via owserver
+// Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
+//
+// MIT Licence
+// {c} 2025 Paul H Alfille
+
+// lib.rs is the library code that actually performs the owserver protocol performing read, write and directory,...
+// the main struct is OwClient
+// configuration is dove with command line parameters in module parse_args.rs
 
 use std::ffi ;
 use std::io::{self,Read,Write,ErrorKind} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
+use std::str ;
 
 pub mod parse_args ;
 
@@ -55,6 +64,7 @@ pub struct OwClient {
 	offset:      u32,
 	slash:       bool,
 	hex:         bool,
+	debug:	     u32,
 	flag:        u32,
 }
 
@@ -97,6 +107,7 @@ impl OwClient {
 			offset: 0,
 			slash: false,
 			hex: false,
+			debug: 0,
 			flag:   0,
 		} ;
 		owc.make_flag() ;
@@ -160,6 +171,9 @@ impl OwClient {
 			Device::FdIdC => OwClient::DEVICE_F_I_C,
 			Device::DEFAULT => OwClient::DEVICE_F_I,
 		} ;
+		if self.debug > 1 {
+			eprintln!("Flag now {:X}",self.flag) ;
+		}
 	}
 
 	fn new_nop(&self)-> OwMessage {
@@ -325,6 +339,19 @@ impl OwClient {
 		}
 		self.retrieve_1_value( path, OwClient::make_get)
 	}
+
+	pub fn printable( &self, v: Vec<u8> ) -> String {
+		if self.hex {
+			return v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ") ;
+		} else {
+			return match str::from_utf8(&v) {
+				Ok(s) => s.to_string() ,
+				Err(_e) => "Unprintable characters".to_string(),
+			} ;
+		}
+	}
+
+
 }
 
 struct OwMessage {
@@ -403,7 +430,6 @@ impl OwMessage {
 		self.payload += self.size ;
 		true
 	}
-	
 }
 
 #[cfg(test)]
@@ -417,4 +443,20 @@ mod tests {
         assert_eq!(owc.pressure, Pressure::DEFAULT);
         assert_eq!(owc.device, Device::DEFAULT);
     }
+    
+    #[test]
+    fn printable_test() {
+        let mut owc = OwClient::new();
+        // Regular
+        owc.hex = false ;
+		let v :Vec<u8> = vec!(72,101,108,108,111);
+		let x = owc.printable(v) ;
+		assert_eq!(x,"Hello");
+
+		// Hex
+        owc.hex = true ;
+		let v :Vec<u8> = vec!(72,101,108,108,111);
+		let x = owc.printable(v) ;
+		assert_eq!(x,"48 65 6C 6C 6F");
+	}
 }

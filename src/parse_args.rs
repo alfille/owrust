@@ -1,7 +1,12 @@
-/*
-owrust library is a rust module that communicates with owserver (http://owfs.org)
-This allows Dallas 1-wire devices to be used easily from rust code
-*/
+// owrust project
+// https://github.com/alfille/owrust
+//
+// This is a rust version of my C owfs code for talking to 1-wire devices via owserver
+// Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
+//
+// MIT Licence
+// {c} 2025 Paul H Alfille
+
 
 use std::ffi::OsString;
 use pico_args::Arguments;
@@ -27,6 +32,10 @@ Display
   --hex    Display values read in hexidecimal
   --size   Max size (in bytes) of returned field (truncate if needed)
   --offset Position in field to start returned value (for long memory contents)
+  
+OTHER
+  -h, --help  This help message
+  -d, --debug Internal process information (more times gives more info)
 ";
 
 pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,pico_args::Error> {
@@ -88,6 +97,13 @@ Read a virtual 1-wire directory from owserver.
 		println!("{}{}", pre_help,HELP);
 		process::exit(0) ;
 	}
+
+	// debug
+	while args.contains(["-d","--debug"]) {
+		owserver.debug += 1 ;
+		eprintln!("Debuging level {}",owserver.debug);
+	}
+
 	// Temperature
 	if args.contains(["-C","--Celsius"]) {
 		owserver.temperature( crate::Temperature::CELSIUS ) ;
@@ -150,6 +166,9 @@ Read a virtual 1-wire directory from owserver.
 			Ok(s) => result.push(s),
 			Err(_) => eprintln!("Bad command line entry."),
 		}
+	}
+	if owserver.debug > 1 {
+		eprintln!("{} path entries",result.len());
 	}
 	Ok(result)
 }
