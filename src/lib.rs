@@ -44,7 +44,7 @@ pub enum Pressure {
 }
 
 #[derive(Debug,PartialEq)]
-pub enum Device {
+pub enum Format {
 	FI,
 	FdI,
 	FIC,
@@ -59,7 +59,7 @@ pub struct OwClient {
 	owserver:    String,
 	temperature: Temperature,
 	pressure:    Pressure,
-	device:      Device,
+	format:      Format,
 	size:		 u32,
 	offset:      u32,
 	slash:       bool,
@@ -70,13 +70,13 @@ pub struct OwClient {
 
 impl OwClient {
 	// Flag for types
-	// -- Device format flags (mutually exclusive)
-	const DEVICE_F_I:  u32 = 0x00000000 ;
-	const DEVICE_FI:   u32 = 0x01000000 ;
-	const DEVICE_F_I_C:u32 = 0x02000000 ;
-	const DEVICE_F_IC: u32 = 0x03000000 ;
-	const DEVICE_FI_C: u32 = 0x04000000 ;
-	const DEVICE_FIC:  u32 = 0x05000000 ;
+	// -- Format flags (mutually exclusive)
+	const FORMAT_F_I:  u32 = 0x00000000 ;
+	const FORMAT_FI:   u32 = 0x01000000 ;
+	const FORMAT_F_I_C:u32 = 0x02000000 ;
+	const FORMAT_F_IC: u32 = 0x03000000 ;
+	const FORMAT_FI_C: u32 = 0x04000000 ;
+	const FORMAT_FIC:  u32 = 0x05000000 ;
 	// -- Temperature flags (mutually exclusive)
 	const TEMPERATURE_C: u32 = 0x00000000 ;
 	const TEMPERATURE_F: u32 = 0x00010000 ;
@@ -99,10 +99,10 @@ impl OwClient {
 
 	fn new() -> Self {
 		let mut owc = OwClient {
-			owserver: String::from("localhost:3504"),
+			owserver: String::from("localhost:4304"),
 			temperature: Temperature::DEFAULT,
 			pressure: Pressure::DEFAULT,
-			device: Device::DEFAULT,
+			format: Format::DEFAULT,
 			size: 0,
 			offset: 0,
 			slash: false,
@@ -114,7 +114,7 @@ impl OwClient {
 		owc
 	}
 	
-	pub fn temperature( &mut self, temp: Temperature ) {
+	pub fn set_temperature( &mut self, temp: Temperature ) {
 		self.temperature = temp ;
 		self.make_flag() ;
 	}
@@ -128,17 +128,17 @@ impl OwClient {
 		}
 	}
 	
-	pub fn pressure( &mut self, pres: Pressure ) {
+	pub fn set_pressure( &mut self, pres: Pressure ) {
 		self.pressure = pres ;
 		self.make_flag() ;
 	}
 	
-	pub fn device( &mut self, dev: Device ) {
-		self.device = dev ;
+	pub fn set_format( &mut self, dev: Format ) {
+		self.format = dev ;
 		self.make_flag() ;
 	}
 	
-	pub fn server( &mut self, srv: String ) {
+	pub fn set_server( &mut self, srv: String ) {
 		self.owserver = srv.clone() ;
 	}	
 	
@@ -162,14 +162,14 @@ impl OwClient {
 			Pressure::DEFAULT => OwClient::PRESSURE_MBAR,
 		};
 		
-		self.flag |= match self.device {
-			Device::FI => OwClient::DEVICE_FI,
-			Device::FdI => OwClient::DEVICE_F_I,
-			Device::FIC => OwClient::DEVICE_FIC,
-			Device::FIdC => OwClient::DEVICE_FI_C,
-			Device::FdIC=> OwClient::DEVICE_F_IC,
-			Device::FdIdC => OwClient::DEVICE_F_I_C,
-			Device::DEFAULT => OwClient::DEVICE_F_I,
+		self.flag |= match self.format {
+			Format::FI => OwClient::FORMAT_FI,
+			Format::FdI => OwClient::FORMAT_F_I,
+			Format::FIC => OwClient::FORMAT_FIC,
+			Format::FIdC => OwClient::FORMAT_FI_C,
+			Format::FdIC=> OwClient::FORMAT_F_IC,
+			Format::FdIdC => OwClient::FORMAT_F_I_C,
+			Format::DEFAULT => OwClient::FORMAT_F_I,
 		} ;
 		if self.debug > 1 {
 			eprintln!("Flag now {:X}",self.flag) ;
@@ -190,6 +190,9 @@ impl OwClient {
 	
 	fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessage,io::Error> {
 		let mut msg = self.new_nop() ;
+		if self.debug > 1 {
+			eprintln!( "Type {} with text {} being prepared for sending", OwMessage::message_name(mtype), text ) ;
+		}
 		msg.mtype = mtype ;
 		if msg.add_path( text ) {
 			Ok(msg)
@@ -252,9 +255,17 @@ impl OwClient {
 			rcv.size    = u32::from_be_bytes(buffer[16..20].try_into().unwrap()) ;
 			rcv.offset  = u32::from_be_bytes(buffer[20..24].try_into().unwrap()) ;
 			
+			if self.debug > 0 {
+				eprintln!( "Received message payload {}, ret {}",rcv.payload as i32,rcv.mtype as i32);
+				eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",rcv.version,rcv.payload,rcv.mtype,rcv.flags,rcv.size,rcv.offset);
+			}
+			
 			let length = rcv.payload as i32 ;
 			if length < 0 {
 				// ping
+				if self.debug > 1 {
+					eprintln!("Ping");
+				}
 				continue ;
 			}
 			if length > 0 {
@@ -281,8 +292,30 @@ impl OwClient {
 		}
 
 		// Write to network
-		let mut stream = TcpStream::connect( &self.owserver ) ? ;
+		if self.debug > 1 {
+			eprintln!("about to connect");
+		}
+		let mut stream =match TcpStream::connect( &self.owserver ) {
+			Ok(s)=> s,
+			Err(e) => {
+				match e.kind() {
+					ErrorKind::ConnectionRefused => eprintln!("Connection Refused"), 
+					ErrorKind::TimedOut => eprintln!("Timed Out"), 
+					ErrorKind::AddrNotAvailable => eprintln!("Address not available"), 
+					_ => eprintln!("Other connection Error"),
+				}
+				return  Err(e) ;
+			}
+		};
+			
+		if self.debug > 1 {
+			eprintln!("connected");
+		}
 		stream.write_all( &msg ) ? ;
+		if self.debug > 1 {
+			eprintln!("sent");
+		}
+
 		
 		let rcv = self.from_message( stream ) ? ;
 		
@@ -441,7 +474,7 @@ mod tests {
         let owc = OwClient::new();
         assert_eq!(owc.temperature, Temperature::DEFAULT);
         assert_eq!(owc.pressure, Pressure::DEFAULT);
-        assert_eq!(owc.device, Device::DEFAULT);
+        assert_eq!(owc.format, Format::DEFAULT);
     }
     
     #[test]

@@ -15,7 +15,7 @@ use std::{env,process} ;
 const HELP: &str = "\
 .
 OPTIONS:
--s --server IPaddress:port (default localhost:3504)
+-s --server IPaddress:port (default localhost:4304)
 
 Temperature scale
   -C, --Celsius
@@ -23,7 +23,7 @@ Temperature scale
   -K, --Kelvin
   -R, --Rankine
   
-Device serial number format
+Format serial number
   f(amily) i(d) c(hecksum
   -f, --format fi | f.i | fic | f.ic | fi.c | f.i.c
 
@@ -106,41 +106,41 @@ Read a virtual 1-wire directory from owserver.
 
 	// Temperature
 	if args.contains(["-C","--Celsius"]) {
-		owserver.temperature( crate::Temperature::CELSIUS ) ;
+		owserver.set_temperature( crate::Temperature::CELSIUS ) ;
 	}
 	if args.contains(["-F","--Farenheit"]) {
-		owserver.temperature( crate::Temperature::FARENHEIT ) ;
+		owserver.set_temperature( crate::Temperature::FARENHEIT ) ;
 	}
 	if args.contains(["-K","--Kelvin"]) {
-		owserver.temperature( crate::Temperature::KELVIN ) ;
+		owserver.set_temperature( crate::Temperature::KELVIN ) ;
 	}
 	if args.contains(["-R","--Rankine"]) {
-		owserver.temperature( crate::Temperature::RANKINE ) ;
+		owserver.set_temperature( crate::Temperature::RANKINE ) ;
 	}
 
 	// Pressure
 	if args.contains("--mmhg") {
-		owserver.pressure( crate::Pressure::MMHG ) ;
+		owserver.set_pressure( crate::Pressure::MMHG ) ;
 	}
 	if args.contains("--inhg") {
-		owserver.pressure( crate::Pressure::INHG ) ;
+		owserver.set_pressure( crate::Pressure::INHG ) ;
 	}
 	if args.contains("--mbar") {
-		owserver.pressure( crate::Pressure::MBAR ) ;
+		owserver.set_pressure( crate::Pressure::MBAR ) ;
 	}
 	if args.contains("--atm") {
-		owserver.pressure( crate::Pressure::ATM ) ;
+		owserver.set_pressure( crate::Pressure::ATM ) ;
 	}
 	if args.contains("--pa") {
-		owserver.pressure( crate::Pressure::PA ) ;
+		owserver.set_pressure( crate::Pressure::PA ) ;
 	}
 	if args.contains("--psi") {
-		owserver.pressure( crate::Pressure::PSI ) ;
+		owserver.set_pressure( crate::Pressure::PSI ) ;
 	}
 
-	// Device
+	// Format
 	let d = args.opt_value_from_fn(["-f","--format"],parse_device) ? ;
-	owserver.device( d.unwrap_or(crate::Device::DEFAULT) ) ;
+	owserver.set_format( d.unwrap_or(crate::Format::DEFAULT) ) ;
 	
 	// Display
 	owserver.hex = args.contains("--hex") ;
@@ -158,7 +158,7 @@ Read a virtual 1-wire directory from owserver.
 	
 	// Server
 	let s: Option<String> = args.opt_value_from_str(["-s","--server"]) ? ;
-	owserver.server(s.unwrap_or(String::from("localhost:3504"))) ;
+	owserver.set_server(s.unwrap_or(String::from("localhost:4304"))) ;
 
 	let mut result: Vec<String> = Vec::new() ;
 	for os in args.finish() {
@@ -173,14 +173,14 @@ Read a virtual 1-wire directory from owserver.
 	Ok(result)
 }
 
-fn parse_device(s: &str) -> Result<crate::Device, &'static str> {
+fn parse_device(s: &str) -> Result<crate::Format, &'static str> {
 	match s {
-		"fi" => Ok(crate::Device::FI),
-		"f.i" => Ok(crate::Device::FdI),
-		"fic" => Ok(crate::Device::FIC),
-		"f.ic" => Ok(crate::Device::FdIC),
-		"fi.c" => Ok(crate::Device::FIdC),
-		"f.i.c" => Ok(crate::Device::FdIdC),
+		"fi" => Ok(crate::Format::FI),
+		"f.i" => Ok(crate::Format::FdI),
+		"fic" => Ok(crate::Format::FIC),
+		"f.ic" => Ok(crate::Format::FdIC),
+		"fi.c" => Ok(crate::Format::FIdC),
+		"f.i.c" => Ok(crate::Format::FdIdC),
 		_  => Err("Not a number"),
 	}
 }
