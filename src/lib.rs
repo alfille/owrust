@@ -179,70 +179,69 @@ impl OwClient {
 		}
 	}
 
-	fn new_nop(&self)-> OwMessage {
-		OwMessage {
-			version: OwMessage::SENDVERSION,
+	fn new_nop(&self)-> OwMessageSend {
+		OwMessageSend {
+			version: OwMessageSend::SENDVERSION,
 			payload: 0,
-			mtype:   OwMessage::NOP,
+			mtype:   OwMessageSend::NOP,
 			flags:   self.flag,
-			size:    OwMessage::DEFAULTSIZE,
+			size:    OwMessageSend::DEFAULTSIZE,
 			offset:  0,
 			content: [].to_vec(),
 		}
 	}
 	
-	fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessage,io::Error> {
+	fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessageSend,io::Error> {
 		let mut msg = self.new_nop() ;
 		if self.debug > 1 {
-			eprintln!( "Type {} with text {} being prepared for sending", OwMessage::message_name(mtype), text ) ;
+			eprintln!( "Type {} with text {} being prepared for sending", OwMessageSend::message_name(mtype), text ) ;
 		}
 		msg.mtype = mtype ;
 		if msg.add_path( text ) {
 			Ok(msg)
 		} else {
-			let explain: String = format!("Trouble creating {} message",OwMessage::message_name(mtype)) ;
-			Err(OwMessage::string_error(&explain))
+			let explain: String = format!("Trouble creating {} message",OwMessageSend::message_name(mtype)) ;
+			Err(OwMessageSend::string_error(&explain))
 		}
 	}
 	
-	fn make_write( &self, text: &str, value: &str ) -> Result<OwMessage,io::Error> {
+	fn make_write( &self, text: &str, value: &str ) -> Result<OwMessageSend,io::Error> {
 		let mut msg = self.new_nop() ;
-		msg.mtype = OwMessage::WRITE ;
+		msg.mtype = OwMessageSend::WRITE ;
 		if msg.add_path( text ) && msg.add_data( value ) {
 			Ok(msg)
 		} else {
-			let explain: String = format!("Trouble creating {} message",OwMessage::message_name(msg.mtype)) ;
-			Err(OwMessage::string_error(&explain))
+			let explain: String = format!("Trouble creating {} message",OwMessageSend::message_name(msg.mtype)) ;
+			Err(OwMessageSend::string_error(&explain))
 		}
 	}
 
-	fn make_read( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::READ )
+	fn make_read( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::READ )
 	}
-	fn make_dir( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::DIR )
+	fn make_dir( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::DIR )
 	}
-	fn make_size( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::SIZE )
+	fn make_size( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::SIZE )
 	}
-	fn make_present( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::PRESENT )
+	fn make_present( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::PRESENT )
 	}
-	fn make_dirall( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::DIRALL )
+	fn make_dirall( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::DIRALL )
 	}
-	fn make_get( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::GET )
+	fn make_get( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::GET )
 	}
-	fn make_dirallslash( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::DIRALLSLASH )
+	fn make_dirallslash( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::DIRALLSLASH )
 	}
-	fn make_getslash( &self, text: &str ) -> Result<OwMessage,io::Error> {
-		self.param1( text, OwMessage::GETSLASH )
+	fn make_getslash( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+		self.param1( text, OwMessageSend::GETSLASH )
 	}
 	
 	fn from_message( &self, mut stream: TcpStream ) -> Result<OwMessageReceive,io::Error> {
-		let mut rcv = self.new_nop() ;
 		static HSIZE: usize = 24 ;
 		let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
 		
@@ -254,7 +253,7 @@ impl OwClient {
 			let mut rcv = OwMessageReceive::new(buffer);
 			
 			if self.debug > 0 {
-				eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",rcv.version,rcv.payload,rcv.ret,rcv.flags,rcv.size,rcv.offset);
+				rcv.tell() ;
 			}
 			
 			if rcv.payload < 0 {
@@ -268,20 +267,20 @@ impl OwClient {
 				let mut chunk = stream.take( rcv.payload as u64 ) ;
 				let c = chunk.read_to_end(&mut rcv.content ) ? ;
 				if c != rcv.payload as usize {
-					return Err(OwMessage::string_error("Receive bad payload length")) ;
+					return Err(OwMessageSend::string_error("Receive bad payload length")) ;
 				}
 			}
 			return Ok(rcv) ;
 		}
 	}
 	
-	fn to_message( &self, send: OwMessage ) -> Result<OwMessageReceive,io::Error> {
+	fn to_message( &self, send: OwMessageSend ) -> Result<OwMessageReceive,io::Error> {
 		let mut msg:Vec<u8> = 
 			[ send.version, send.payload, send.mtype, send.flags, send.size, send.offset ]
 			.iter()
 			.flat_map( |&u| u.to_be_bytes() )
 			.collect() ;
-		if send.content_length() > 0 {
+		if send.payload > 0 {
 			msg.extend_from_slice(&send.content) ;
 		}
 
@@ -315,10 +314,10 @@ impl OwClient {
 		
 		Ok(rcv)
 	}
-	fn retrieve_1_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessage,io::Error>) -> Result< Vec<u8>, io::Error> {
+	fn retrieve_1_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessageSend,io::Error>) -> Result< Vec<u8>, io::Error> {
 		let msg = f( self, path ) ? ;
 		let rcv = self.to_message( msg ) ? ;
-		if rcv.content_length() > 0 {
+		if rcv.payload > 0 {
 			let v: Vec<u8> = rcv.content ;
 			return Ok( v ) ;
 		}
@@ -331,10 +330,10 @@ impl OwClient {
 	pub fn write( &self, path: &str, value: &str ) -> Result<(),io::Error> {
 		let msg = OwClient::make_write( self, path, value ) ? ;
 		let rcv = self.to_message( msg ) ? ;
-		if rcv.ret_code() == 0 {
+		if rcv.ret == 0 {
 			return Ok( () ) ;
 		}
-		return Err(OwMessage::string_error("Write error"));
+		return Err(OwMessageSend::string_error("Write error"));
 	}
 	pub fn dir( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
 		self.retrieve_1_value( path, OwClient::make_dirall)
@@ -342,14 +341,14 @@ impl OwClient {
 	pub fn present( &self, path: &str ) -> Result<bool,io::Error> {
 		let msg = self.make_present( path ) ? ;
 		let rcv = self.to_message( msg ) ? ;
-		Ok(rcv.ret_code()==0)
+		Ok(rcv.ret==0)
 	}
 	pub fn size( &self, path: &str ) -> Result<i32,io::Error> {
 		let msg = self.make_size( path ) ? ;
 		let rcv = self.to_message( msg ) ? ;
-		let ret = rcv.ret_code();
+		let ret = rcv.ret;
 		if ret < 0 {
-			return Err(OwMessage::string_error("Bad size"));
+			return Err(OwMessageSend::string_error("Bad size"));
 		} else {
 			return Ok(ret) ;
 		}
@@ -379,7 +378,7 @@ impl OwClient {
 	}
 }
 
-struct OwMessage {
+struct OwMessageSend {
 	version: u32,
 	payload: u32,
 	mtype:   u32,
@@ -388,7 +387,7 @@ struct OwMessage {
 	offset:  u32,
 	content: Vec<u8>,
 }
-impl OwMessage {
+impl OwMessageSend {
 	// Default owserver version (to owserver)
 	const SENDVERSION: u32 = 0 ;
 
@@ -409,29 +408,22 @@ impl OwMessage {
 
 	fn message_name( mtype: u32 ) -> &'static str {
 		match mtype {
-			OwMessage::NOP => "NOP",
-			OwMessage::READ => "READ",
-			OwMessage::WRITE => "WRITE",
-			OwMessage::DIR => "DIR",
-			OwMessage::SIZE => "SIZE",
-			OwMessage::PRESENT => "PRESENT",
-			OwMessage::DIRALL => "DIRALL",
-			OwMessage::GET => "GET",
-			OwMessage::DIRALLSLASH => "DIRALLSLASH",
-			OwMessage::GETSLASH => "GETSLASH",
+			OwMessageSend::NOP => "NOP",
+			OwMessageSend::READ => "READ",
+			OwMessageSend::WRITE => "WRITE",
+			OwMessageSend::DIR => "DIR",
+			OwMessageSend::SIZE => "SIZE",
+			OwMessageSend::PRESENT => "PRESENT",
+			OwMessageSend::DIRALL => "DIRALL",
+			OwMessageSend::GET => "GET",
+			OwMessageSend::DIRALLSLASH => "DIRALLSLASH",
+			OwMessageSend::GETSLASH => "GETSLASH",
 			_ => "UNKNOWN",
 		}
 	}
 
 	fn string_error(e: &str) ->io::Error {
 		io::Error::new(ErrorKind::Other, e )
-	}
-	
-	fn ret_code( &self ) -> i32 {
-		self.mtype as i32
-	}
-	fn content_length( &self ) -> usize {
-		self.payload as usize
 	}
 	
 	fn add_path( &mut self, path: &str ) -> bool {
@@ -478,6 +470,9 @@ impl OwMessageReceive {
 			offset:  u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
 			content: [].to_vec(),
 		}
+	}
+	fn tell( &self) {
+		eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
 	}
 }
 			
