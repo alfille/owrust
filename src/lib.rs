@@ -241,7 +241,7 @@ impl OwClient {
 		self.param1( text, OwMessage::GETSLASH )
 	}
 	
-	fn from_message( &self, mut stream: TcpStream ) -> Result<OwMessage,io::Error> {
+	fn from_message( &self, mut stream: TcpStream ) -> Result<OwMessageReceive,io::Error> {
 		let mut rcv = self.new_nop() ;
 		static HSIZE: usize = 24 ;
 		let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
@@ -251,40 +251,31 @@ impl OwClient {
 		
 		loop {
 			stream.read_exact( &mut buffer ) ? ;
-			rcv.version = u32::from_be_bytes(buffer[ 0.. 4].try_into().unwrap()) ;
-			rcv.payload = u32::from_be_bytes(buffer[ 4.. 8].try_into().unwrap()) ;
-			rcv.mtype   = u32::from_be_bytes(buffer[ 8..12].try_into().unwrap()) ;
-			rcv.flags   = u32::from_be_bytes(buffer[12..16].try_into().unwrap()) ;
-			rcv.size    = u32::from_be_bytes(buffer[16..20].try_into().unwrap()) ;
-			rcv.offset  = u32::from_be_bytes(buffer[20..24].try_into().unwrap()) ;
+			let mut rcv = OwMessageReceive::new(buffer);
 			
 			if self.debug > 0 {
-				eprintln!( "Received message payload {}, ret {}",rcv.payload as i32,rcv.mtype as i32);
-				eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",rcv.version,rcv.payload,rcv.mtype,rcv.flags,rcv.size,rcv.offset);
+				eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",rcv.version,rcv.payload,rcv.ret,rcv.flags,rcv.size,rcv.offset);
 			}
 			
-			let length = rcv.payload as i32 ;
-			if length < 0 {
+			if rcv.payload < 0 {
 				// ping
 				if self.debug > 1 {
 					eprintln!("Ping");
 				}
 				continue ;
 			}
-			if length > 0 {
-				let mut chunk = stream.take( length as u64 ) ;
-				rcv.content.clear() ;
+			if rcv.payload > 0 {
+				let mut chunk = stream.take( rcv.payload as u64 ) ;
 				let c = chunk.read_to_end(&mut rcv.content ) ? ;
-				if c != length as usize {
+				if c != rcv.payload as usize {
 					return Err(OwMessage::string_error("Receive bad payload length")) ;
 				}
 			}
-			break ;
+			return Ok(rcv) ;
 		}
-		return Ok(rcv) ;
 	}
 	
-	fn to_message( &self, send: OwMessage ) -> Result<OwMessage,io::Error> {
+	fn to_message( &self, send: OwMessage ) -> Result<OwMessageReceive,io::Error> {
 		let mut msg:Vec<u8> = 
 			[ send.version, send.payload, send.mtype, send.flags, send.size, send.offset ]
 			.iter()
@@ -386,8 +377,6 @@ impl OwClient {
 			} ;
 		}
 	}
-
-
 }
 
 struct OwMessage {
@@ -467,6 +456,31 @@ impl OwMessage {
 		true
 	}
 }
+
+struct OwMessageReceive {
+	version: u32,
+	payload: i32,
+	ret:     i32,
+	flags:   u32,
+	size:    u32,
+	offset:  u32,
+	content: Vec<u8>,
+}
+impl OwMessageReceive {
+	const HSIZE: usize = 24 ;
+	fn new( buffer: [u8;OwMessageReceive::HSIZE] ) -> Self {
+		OwMessageReceive {			
+			version: u32::from_be_bytes(buffer[ 0.. 4].try_into().unwrap()),
+			payload: u32::from_be_bytes(buffer[ 4.. 8].try_into().unwrap()) as i32,
+			ret:     u32::from_be_bytes(buffer[ 8..12].try_into().unwrap()) as i32,
+			flags:   u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+			size:    u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+			offset:  u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+			content: [].to_vec(),
+		}
+	}
+}
+			
 
 #[cfg(test)]
 mod tests {
