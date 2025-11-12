@@ -7,8 +7,11 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-// lib.rs is the library code that actually performs the owserver protocol performing read, write and directory,...
-// the main struct is OwClient
+//! lib.rs is the library code that actually performs the owserver protocol.
+//! Supported operations are read, write, dir, present and size, with some variations
+
+//! the main struct is OwClient which holds all the configuration information
+//! typically is is populated by the command line of configuration files
 // configuration is dove with command line parameters in module parse_args.rs
 
 use std::ffi ;
