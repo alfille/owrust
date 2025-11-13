@@ -35,7 +35,7 @@ fn main() {
 }
 
 fn from_path( owserver: &owrust::OwClient, path: String ) {
-	match owserver.dir(&path) {
+	match owserver.dirall(&path) {
 		Ok(files) => {
 			println!("{}",owserver.printable(files)) ;
 		}

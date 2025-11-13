@@ -11,11 +11,10 @@
 //! Supported operations are read, write, dir, present and size, with some variations
 
 //! the main struct is OwClient which holds all the configuration information
-//! typically is is populated by the command line of configuration files
-// configuration is dove with command line parameters in module parse_args.rs
+//! typically is is populated by the command line or configuration files
 
 use std::ffi ;
-use std::io::{self,Read,Write,ErrorKind} ;
+use std::io::{Read,Write} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
 use std::str ;
@@ -146,7 +145,7 @@ impl OwClient {
 	}	
 	
 	fn make_flag( &mut self ) {
-		self.flag = 0 ;
+		self.flag = OwClient::BUS_RET ;
 		self.flag |= match self.temperature {
 			Temperature::CELSIUS   => OwClient::TEMPERATURE_C,
 			Temperature::FARENHEIT => OwClient::TEMPERATURE_F,
@@ -191,90 +190,111 @@ impl OwClient {
 		}
 	}
 	
-	fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessageSend,io::Error> {
+	fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessageSend,OwError> {
 		let mut msg = self.new_nop() ;
 		if self.debug > 1 {
 			eprintln!( "Type {} with text {} being prepared for sending", OwMessageSend::message_name(mtype), text ) ;
 		}
 		msg.mtype = mtype ;
 		if msg.add_path( text ) {
-			Ok(msg)
+			return Ok(msg);
 		} else {
-			let explain: String = format!("Trouble creating {} message",OwMessageSend::message_name(mtype)) ;
-			Err(OwMessageSend::string_error(&explain))
+			eprintln!("Could not add path to sending message");
+			return Err(OwError::TextError);
 		}
 	}
 	
-	fn make_write( &self, text: &str, value: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_write( &self, text: &str, value: &str ) -> Result<OwMessageSend,OwError> {
 		let mut msg = self.new_nop() ;
 		msg.mtype = OwMessageSend::WRITE ;
 		if msg.add_path( text ) && msg.add_data( value ) {
 			Ok(msg)
 		} else {
-			let explain: String = format!("Trouble creating {} message",OwMessageSend::message_name(msg.mtype)) ;
-			Err(OwMessageSend::string_error(&explain))
+			eprintln!("Could not add value to sending message");
+			return Err(OwError::TextError);
 		}
 	}
 
-	fn make_read( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_read( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::READ )
 	}
-	fn make_dir( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_dir( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::DIR )
 	}
-	fn make_size( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_size( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::SIZE )
 	}
-	fn make_present( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_present( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::PRESENT )
 	}
-	fn make_dirall( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_dirall( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::DIRALL )
 	}
-	fn make_get( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_get( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::GET )
 	}
-	fn make_dirallslash( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_dirallslash( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::DIRALLSLASH )
 	}
-	fn make_getslash( &self, text: &str ) -> Result<OwMessageSend,io::Error> {
+	fn make_getslash( &self, text: &str ) -> Result<OwMessageSend,OwError> {
 		self.param1( text, OwMessageSend::GETSLASH )
 	}
 	
-	fn from_message( &self, mut stream: TcpStream ) -> Result<OwMessageReceive,io::Error> {
-		static HSIZE: usize = 24 ;
-		let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
-		
+	fn send_get_single( &self, send: OwMessageSend ) -> Result<OwMessageReceive,OwError> {
+		let stream = self.send_packet( send ) ? ;		
+		self.get_msg_single( stream )
+	}
+
+	fn send_get_many( &self, send: OwMessageSend ) -> Result<OwMessageReceive,OwError> {
+		let stream = self.send_packet( send ) ? ;		
+		self.get_msg_many( stream )
+	}
+
+	fn get_msg_single( &self, stream: TcpStream ) -> Result<OwMessageReceive,OwError> {
 		// Set timeout
-		stream.set_read_timeout( Some(Duration::from_secs(5))) ? ;
-		
-		loop {
-			stream.read_exact( &mut buffer ) ? ;
-			let mut rcv = OwMessageReceive::new(buffer);
-			
-			if self.debug > 0 {
-				rcv.tell() ;
-			}
-			
-			if rcv.payload < 0 {
-				// ping
-				if self.debug > 1 {
-					eprintln!("Ping");
-				}
-				continue ;
-			}
-			if rcv.payload > 0 {
-				let mut chunk = stream.take( rcv.payload as u64 ) ;
-				let c = chunk.read_to_end(&mut rcv.content ) ? ;
-				if c != rcv.payload as usize {
-					return Err(OwMessageSend::string_error("Receive bad payload length")) ;
-				}
-			}
-			return Ok(rcv) ;
+		self.set_timeout( &stream ) ? ;
+		self.get_packet( &stream )
+	}
+	
+	fn set_timeout( &self, stream: &TcpStream ) -> Result<(),OwError> {
+		// Set timeout
+		match stream.set_read_timeout( Some(Duration::from_secs(5))) {
+			Ok(_s)=>Ok(()),
+			Err(e) => {
+				eprintln!("Trouble setting timeout: {:?}",e);
+				return Err(OwError::NetworkError);
+			},
 		}
 	}
 	
-	fn to_message( &self, send: OwMessageSend ) -> Result<OwMessageReceive,io::Error> {
+	/// Loop through getting packets until payload empty
+	/// for directories
+	fn get_msg_many( &self, stream: TcpStream ) -> Result<OwMessageReceive,OwError> {
+		// Set timeout
+		self.set_timeout( &stream ) ? ;
+		
+		let mut full_rcv = self.get_packet( &stream ) ? ;
+
+		if full_rcv.payload == 0 {
+			return Ok(full_rcv) ;
+		}
+		
+		loop {
+			// get more packets and add content to first one, adjusting payload size
+			let mut rcv = self.get_packet( &stream ) ? ;
+			if self.debug > 0 {
+				eprintln!("Another packet");
+			}
+			if rcv.payload == 0 {
+				return Ok(full_rcv) ;
+			}
+			full_rcv.content[(full_rcv.payload-1) as usize] = b',' ; // trailing null -> comma
+			full_rcv.content.append( &mut rcv.content ) ; // add this packet's info
+			full_rcv.payload += rcv.payload ;
+		}
+	}
+	
+	fn send_packet( &self, send: OwMessageSend ) -> Result<TcpStream,OwError> {
 		let mut msg:Vec<u8> = 
 			[ send.version, send.payload, send.mtype, send.flags, send.size, send.offset ]
 			.iter()
@@ -288,35 +308,71 @@ impl OwClient {
 		if self.debug > 1 {
 			eprintln!("about to connect");
 		}
-		let mut stream =match TcpStream::connect( &self.owserver ) {
+		let mut stream = match TcpStream::connect( &self.owserver ) {
 			Ok(s)=> s,
 			Err(e) => {
-				match e.kind() {
-					ErrorKind::ConnectionRefused => eprintln!("Connection Refused"), 
-					ErrorKind::TimedOut => eprintln!("Timed Out"), 
-					ErrorKind::AddrNotAvailable => eprintln!("Address not available"), 
-					_ => eprintln!("Other connection Error"),
-				}
-				return  Err(e) ;
-			}
+				eprintln!("Trouble connecting to owserver: {:?}",e) ;
+				return Err(OwError::NetworkError) ;
+			},
 		};
 			
-		if self.debug > 1 {
-			eprintln!("connected");
-		}
-		stream.write_all( &msg ) ? ;
-		if self.debug > 1 {
-			eprintln!("sent");
-		}
-
+		match stream.write_all( &msg ) {
+			Ok(_s)=> (),
+			Err(e) => {
+				eprintln!("Trouble sending to owserver: {:?}",e) ;
+				return Err(OwError::NetworkError) ;
+			},
+		} ;
 		
-		let rcv = self.from_message( stream ) ? ;
-		
-		Ok(rcv)
+		Ok(stream)
 	}
-	fn retrieve_1_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessageSend,io::Error>) -> Result< Vec<u8>, io::Error> {
+
+	fn get_packet( &self, mut stream: &TcpStream ) -> Result<OwMessageReceive,OwError> {
+		/// get a single non-ping message.
+		/// May need multiple for directories
+		static HSIZE: usize = 24 ;
+		let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
+		
+		loop {
+			match stream.read_exact( &mut buffer ) {
+				Ok(_s)=>(),
+				Err(e) => {
+					eprintln!("Trouble receiving header: {:?}",e);
+					return Err(OwError::NetworkError);
+				},
+			};
+			let mut rcv = OwMessageReceive::new(buffer);
+			
+			if self.debug > 0 {
+				rcv.tell() ;
+			}
+			
+			if (rcv.payload as i32) < 0 {
+				// ping
+				if self.debug > 1 {
+					eprintln!("Ping");
+				}
+				continue ;
+			}
+			if rcv.payload > 0 {
+				rcv.content = Vec::with_capacity(rcv.payload as usize) ;
+				rcv.content.resize(rcv.payload as usize,0);
+				
+				match stream.read_exact(&mut rcv.content ) {
+					Ok(_s)=>(),
+					Err(e) => {
+						eprintln!("Trouble receiving payload: {:?}",e);
+						return Err(OwError::NetworkError);
+					},
+				} ;
+			}
+			return Ok(rcv) ;
+		}
+	}
+	
+	fn get_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessageSend,OwError>) -> Result< Vec<u8>, OwError> {
 		let msg = f( self, path ) ? ;
-		let rcv = self.to_message( msg ) ? ;
+		let rcv = self.send_get_single( msg ) ? ;
 		if rcv.payload > 0 {
 			let v: Vec<u8> = rcv.content ;
 			return Ok( v ) ;
@@ -324,46 +380,54 @@ impl OwClient {
 		Ok(Vec::new())
 	}
 	
-	pub fn read( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_read)
+	pub fn read( &self, path: &str ) -> Result<Vec<u8>,OwError> {
+		self.get_value( path, OwClient::make_read)
 	}
-	pub fn write( &self, path: &str, value: &str ) -> Result<(),io::Error> {
+	pub fn write( &self, path: &str, value: &str ) -> Result<(),OwError> {
 		let msg = OwClient::make_write( self, path, value ) ? ;
-		let rcv = self.to_message( msg ) ? ;
+		let rcv = self.send_get_single( msg ) ? ;
 		if rcv.ret == 0 {
 			return Ok( () ) ;
 		}
-		return Err(OwMessageSend::string_error("Write error"));
+		eprintln!("Return code from owserver is error {}",rcv.ret);
+		return Err(OwError::OtherError);
 	}
-	pub fn dir( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
-		self.retrieve_1_value( path, OwClient::make_dirall)
+	pub fn dir( &self, path: &str ) -> Result<Vec<u8>,OwError> {
+		let msg = self.make_dir( path ) ? ;
+		let rcv = self.send_get_many( msg ) ? ;
+		if rcv.payload > 0 {
+			let v: Vec<u8> = rcv.content ;
+			return Ok( v ) ;
+		}
+		Ok(Vec::new())
 	}
-	pub fn present( &self, path: &str ) -> Result<bool,io::Error> {
+	pub fn present( &self, path: &str ) -> Result<bool,OwError> {
 		let msg = self.make_present( path ) ? ;
-		let rcv = self.to_message( msg ) ? ;
+		let rcv = self.send_get_single( msg ) ? ;
 		Ok(rcv.ret==0)
 	}
-	pub fn size( &self, path: &str ) -> Result<i32,io::Error> {
+	pub fn size( &self, path: &str ) -> Result<i32,OwError> {
 		let msg = self.make_size( path ) ? ;
-		let rcv = self.to_message( msg ) ? ;
+		let rcv = self.send_get_single( msg ) ? ;
 		let ret = rcv.ret;
 		if ret < 0 {
-			return Err(OwMessageSend::string_error("Bad size"));
+			eprintln!("Return code from owserver is error {}",rcv.ret);
+			return Err(OwError::OtherError);
 		} else {
 			return Ok(ret) ;
 		}
 	}
-	pub fn dirall( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
-		if self.slash {
-			return self.retrieve_1_value( path, OwClient::make_dirallslash) ;
+	pub fn dirall( &self, path: &str ) -> Result<Vec<u8>,OwError> {
+		match self.slash {
+			true => self.get_value(path,OwClient::make_dirallslash),
+			_ => self.get_value(path,OwClient::make_dirall),
 		}
-		self.retrieve_1_value( path, OwClient::make_dirall)
 	}
-	pub fn get( &self, path: &str ) -> Result<Vec<u8>,io::Error> {
-		if self.slash {
-			return self.retrieve_1_value( path, OwClient::make_getslash) ;
+	pub fn get( &self, path: &str ) -> Result<Vec<u8>,OwError> {
+		match self.slash {
+			true => self.get_value( path, OwClient::make_getslash),
+			_ => self.get_value( path, OwClient::make_get),
 		}
-		self.retrieve_1_value( path, OwClient::make_get)
 	}
 
 	pub fn printable( &self, v: Vec<u8> ) -> String {
@@ -378,6 +442,7 @@ impl OwClient {
 	}
 }
 
+
 struct OwMessageSend {
 	version: u32,
 	payload: u32,
@@ -387,6 +452,7 @@ struct OwMessageSend {
 	offset:  u32,
 	content: Vec<u8>,
 }
+
 impl OwMessageSend {
 	// Default owserver version (to owserver)
 	const SENDVERSION: u32 = 0 ;
@@ -422,10 +488,6 @@ impl OwMessageSend {
 		}
 	}
 
-	fn string_error(e: &str) ->io::Error {
-		io::Error::new(ErrorKind::Other, e )
-	}
-	
 	fn add_path( &mut self, path: &str ) -> bool {
 		// Add nul-terminated path (and includes null in payload size)
 		self.content = match ffi::CString::new(path) {
@@ -451,7 +513,7 @@ impl OwMessageSend {
 
 struct OwMessageReceive {
 	version: u32,
-	payload: i32,
+	payload: u32,
 	ret:     i32,
 	flags:   u32,
 	size:    u32,
@@ -463,7 +525,7 @@ impl OwMessageReceive {
 	fn new( buffer: [u8;OwMessageReceive::HSIZE] ) -> Self {
 		OwMessageReceive {			
 			version: u32::from_be_bytes(buffer[ 0.. 4].try_into().unwrap()),
-			payload: u32::from_be_bytes(buffer[ 4.. 8].try_into().unwrap()) as i32,
+			payload: u32::from_be_bytes(buffer[ 4.. 8].try_into().unwrap()),
 			ret:     u32::from_be_bytes(buffer[ 8..12].try_into().unwrap()) as i32,
 			flags:   u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
 			size:    u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
@@ -475,7 +537,14 @@ impl OwMessageReceive {
 		eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
 	}
 }
-			
+
+#[derive(Debug)]
+pub enum OwError {
+    TextError,
+    NetworkError,
+    ConfigError,
+    OtherError,
+}			
 
 #[cfg(test)]
 mod tests {

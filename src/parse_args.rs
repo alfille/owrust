@@ -11,6 +11,7 @@
 use std::ffi::OsString;
 use pico_args::Arguments;
 use std::{env,process} ;
+use crate::OwError ;
 
 const HELP: &str = "\
 .
@@ -38,16 +39,28 @@ OTHER
   -d, --debug Internal process information (more times gives more info)
 ";
 
-pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,pico_args::Error> {
+pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwError> {
 	// normal path -- from environment
 	let args = Arguments::from_env();
-	parser( owserver, args )
+	match parser( owserver, args ) {
+		Ok(v) => return Ok(v),
+		Err(e) => {
+			eprintln!("Parsing error {:?}",e);
+			return Err(OwError::ConfigError);
+		},
+	};
 }
 
-pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) -> Result<Vec<String>,pico_args::Error> {
+pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) -> Result<Vec<String>,OwError> {
 	// normal path -- from envoronment
 	let args = Arguments::from_vec(raw_args);
-	parser( owserver, args )
+	match parser( owserver, args ) {
+		Ok(v) => return Ok(v),
+		Err(e) => {
+			eprintln!("Parsing error {:?}",e);
+			return Err(OwError::ConfigError);
+		},
+	};
 }
 
 fn progname() -> String {
