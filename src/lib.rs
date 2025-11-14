@@ -26,6 +26,10 @@ pub fn new() -> OwClient {
 }
 
 #[derive(Debug,PartialEq)]
+/// Temperature scale
+/// sent to owserver in the flag parameter since only the original 1-wire 
+///  program in the chain knows the type of value being sought
+/// default is actually celsius
 pub enum Temperature {
 	CELSIUS,
 	FARENHEIT,
@@ -35,6 +39,9 @@ pub enum Temperature {
 }
 
 #[derive(Debug,PartialEq)]
+/// Pressure scale
+/// sent to owserver in the flag parameter since only the original 1-wire 
+///  program in the chain knows the type of value being sought
 pub enum Pressure {
 	MMHG,
 	INHG,
@@ -46,6 +53,11 @@ pub enum Pressure {
 }
 
 #[derive(Debug,PartialEq)]
+/// 1-wire ID format
+/// has components:
+///  F family code (1 byte)
+///  I unique serial number (6 bytes)
+///  C checksum (1-byte)
 pub enum Format {
 	FI,
 	FdI,
@@ -116,6 +128,9 @@ impl OwClient {
 		owc
 	}
 	
+	/// set_temperature
+	/// sets the temperature scale in the flags that is used for queries
+	/// typically in the configuration step
 	pub fn set_temperature( &mut self, temp: Temperature ) {
 		self.temperature = temp ;
 		self.make_flag() ;
@@ -130,16 +145,26 @@ impl OwClient {
 		}
 	}
 	
+	/// set_pressure
+	/// sets the pressure scale in the flags that is used for queries
+	/// typically in the configuration step
 	pub fn set_pressure( &mut self, pres: Pressure ) {
 		self.pressure = pres ;
 		self.make_flag() ;
 	}
 	
+	/// set_format
+	/// sets the 1-wire device unique address format is used for display
+	/// typically in the configuration step
 	pub fn set_format( &mut self, dev: Format ) {
 		self.format = dev ;
 		self.make_flag() ;
 	}
 	
+	/// set_server
+	/// sets the newtwork address of the owserver being used
+	/// should be in IP:port format
+	/// example "127.0.0.0:4304"
 	pub fn set_server( &mut self, srv: String ) {
 		self.owserver = srv.clone() ;
 	}	
@@ -267,8 +292,8 @@ impl OwClient {
 		}
 	}
 	
-	/// Loop through getting packets until payload empty
-	/// for directories
+	// Loop through getting packets until payload empty
+	// for directories
 	fn get_msg_many( &self, stream: TcpStream ) -> Result<OwMessageReceive,OwError> {
 		// Set timeout
 		self.set_timeout( &stream ) ? ;
@@ -328,8 +353,8 @@ impl OwClient {
 	}
 
 	fn get_packet( &self, mut stream: &TcpStream ) -> Result<OwMessageReceive,OwError> {
-		/// get a single non-ping message.
-		/// May need multiple for directories
+		// get a single non-ping message.
+		// May need multiple for directories
 		static HSIZE: usize = 24 ;
 		let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
 		
@@ -430,6 +455,9 @@ impl OwClient {
 		}
 	}
 
+	/// printable
+	/// prints the data returned from
+	///  dir, dirall
 	pub fn printable( &self, v: Vec<u8> ) -> String {
 		if self.hex {
 			return v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ") ;

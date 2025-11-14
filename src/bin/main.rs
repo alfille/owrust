@@ -7,7 +7,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-// main.rs is a skeleton structure to talk to the library
+/// main.rs is a skeleton structure to talk to the library
 
 use owrust ;
 use owrust::parse_args ;
