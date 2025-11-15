@@ -33,6 +33,7 @@ Display
   --hex    Display values read in hexidecimal
   --size   Max size (in bytes) of returned field (truncate if needed)
   --offset Position in field to start returned value (for long memory contents)
+  --bare   Show only 1-wire devices, not virtual directories
   
 OTHER
   -h, --help  This help message

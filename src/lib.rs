@@ -78,6 +78,7 @@ pub struct OwClient {
 	offset:      u32,
 	slash:       bool,
 	hex:         bool,
+	bare:		 bool,
 	debug:	     u32,
 	flag:        u32,
 }
@@ -121,6 +122,7 @@ impl OwClient {
 			offset: 0,
 			slash: false,
 			hex: false,
+			bare: false,
 			debug: 0,
 			flag:   0,
 		} ;
@@ -170,7 +172,11 @@ impl OwClient {
 	}	
 	
 	fn make_flag( &mut self ) {
-		self.flag = OwClient::BUS_RET ;
+		if self.bare {
+			self.flag = 0 ;
+		} else {
+			self.flag = OwClient::BUS_RET ;
+		}
 		self.flag |= match self.temperature {
 			Temperature::CELSIUS   => OwClient::TEMPERATURE_C,
 			Temperature::FARENHEIT => OwClient::TEMPERATURE_F,
