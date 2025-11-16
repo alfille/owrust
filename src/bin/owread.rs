@@ -1,10 +1,10 @@
-//! **owread** -- _rust version_
+//! **owread** -- _Rust version_
 //!
 //! ## Read a value from owserver ( from a 1-wire device )
 //! 
-//! This is a tool in the 1-wire file system **OWFS**
+//! **owread** is a tool in the 1-wire file system **OWFS**
 //!
-//! This version os **owdir** is part of **owrust** -- the _rust language_ OWFS programs
+//! This Rust version of **owdir** is part of **owrust** -- the _Rust language_ OWFS programs
 //! * **OWFS** [documentation](https://owfs.org) and [code](https://github.com/owfs/owfs)
 //! * **owrust** [repository](https://github.com/alfille/owrust)
 //!
@@ -18,11 +18,14 @@
 //! * `--hex       show the value in hexidecimal
 //! * `--size n    return only n bytes
 //! * `--offset m  start return at byte m
-//! * -h           more help
+//! * -h           for full list of options
 //!
 //! ## PATH
-//! a 1-wire path (default `/`)
+//! * 1-wire path to a file
+//! * No Default
+//! * More than one path can be given
 //!
+//! **owread** only works on files, not directories. Use **owget** to read both files and directories.
 //!
 //! ## USAGE
 //! * owserver must be running in a network-accessible location
@@ -34,55 +37,55 @@
 //! Read a temperature
 //! ```
 //! owread /10.67C6697351FF/temperature
-//!     85.7961//! 
-//!```
+//!     85.7961 
+//! ```
 //! Read temperature in hex
 //! ```
 //! owread /10.67C6697351FF/temperature --hex
-//! 20 20 20 20 20 37 36 2E 31 35 38 35//! ```
+//! 20 20 20 20 20 37 36 2E 31 35 38 35
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence
 
 // owrust project
 // https://github.com/alfille/owrust
 //
-// This is a rust version of my C owfs code for talking to 1-wire devices via owserver
+// This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 //
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-// owdir.rs mimics the owdir shell program
-// the path is a 1-wire path and the returned entries are 1-wire devices and virtual directories
-
 use owrust ;
 use owrust::parse_args ;
 
 fn main() {
-	let mut owserver = owrust::new() ;
+	let mut owserver = owrust::new() ; // create structure for owserver communication
 
+	// configure and get paths
 	match parse_args::command_line( &mut owserver ) {
+		
 		Ok( paths ) => {
 			if paths.len() == 0 {
-				// No path -- assume root
-				from_path( &owserver, "/".to_string() ) ;
+				// No path
+				eprintln!( "No 1-wire path, so no readings" ) ;
 			} else {
-				// for each path entry
+				// for each pathon command line
 				for path in paths.into_iter() {
 					from_path( &owserver, path ) ;
 				}
 			}
 		}
 		Err(_e) => {
-			eprintln!("owdir trouble");
+			eprintln!("owread trouble");
 		},
 	}
 }
 
+// print 1-wire file contents (e.g. a sensor reading)
 fn from_path( owserver: &owrust::OwClient, path: String ) {
 	match owserver.read(&path) {
-		Ok(files) => {
-			println!("{}",owserver.printable(files)) ;
+		Ok(values) => {
+			println!("{}",owserver.show_result(values)) ;
 		}
 		Err(_e) => {
 			eprintln!("Trouble with path {}",path);

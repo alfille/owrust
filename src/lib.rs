@@ -1,17 +1,41 @@
+//! **owrust** Rust library interfaces with owserver to use 1-wire devices 
+//!
+//! This is a tool in the 1-wire file system **OWFS**
+//!
+//! This library is the central part of **owrust** -- the _rust language_ OWFS programs
+//! * **OWFS** [documentation](https://owfs.org) and [code](https://github.com/owfs/owfs)
+//! * **owrust** [repository](https://github.com/alfille/owrust)
+//!
+//! ## PURPOSE
+//! lib.rs is the library code that actually performs the **owserver protocol**.
+//! Communication with **owserver** is over TCP/IP (network) using an efficient well-documented protocol.
+//!
+//! Supported operations are read, write, dir, present and size, with some variations
+//!
+//! The main struct is OwClient which holds all the configuration information.
+//! Typically it is populated by the command line or configuration files
+//!
+//! ## EXAMPLES
+//! ```
+//! use owrust ; // basic library
+//! use owrust::parse_args ; // configure from command line, file or OsString
+//!
+//! fn main() {
+//!   let mut owserver = owrust::new() ; // create an OwClient struct
+//!   // configure from command line and get 1-wire paths
+//!   let paths = parse_args::command_line( &mut owserver ) ;
+//!   // Call any of the OwClient functions like dir, read, write,...
+//!   }
+//!   ```
+  
 // owrust project
 // https://github.com/alfille/owrust
 //
-// This is a rust version of my C owfs code for talking to 1-wire devices via owserver
+// This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 //
 // MIT Licence
 // {c} 2025 Paul H Alfille
-
-//! lib.rs is the library code that actually performs the owserver protocol.
-//! Supported operations are read, write, dir, present and size, with some variations
-
-//! the main struct is OwClient which holds all the configuration information
-//! typically is is populated by the command line or configuration files
 
 use std::ffi ;
 use std::io::{Read,Write} ;
@@ -21,15 +45,18 @@ use std::str ;
 
 pub mod parse_args ;
 
+/// ### new
+/// Creates a new OwClient
+/// * configure flags and server address before using
+/// * use public OwClient methods to manage owserver communication
 pub fn new() -> OwClient {
 	OwClient::new()
 }
 
 #[derive(Debug,PartialEq)]
-/// Temperature scale
+/// ### Temperature scale
 /// sent to owserver in the flag parameter since only the original 1-wire 
-///  program in the chain knows the type of value being sought
-/// default is actually celsius
+/// program in the chain knows the type of value being sought
 pub enum Temperature {
 	CELSIUS,
 	FARENHEIT,
@@ -39,9 +66,9 @@ pub enum Temperature {
 }
 
 #[derive(Debug,PartialEq)]
-/// Pressure scale
+/// ### Pressure scale
 /// sent to owserver in the flag parameter since only the original 1-wire 
-///  program in the chain knows the type of value being sought
+/// program in the chain knows the type of value being sought
 pub enum Pressure {
 	MMHG,
 	INHG,
@@ -53,7 +80,7 @@ pub enum Pressure {
 }
 
 #[derive(Debug,PartialEq)]
-/// 1-wire ID format
+/// ### 1-wire ID format
 /// has components:
 ///  F family code (1 byte)
 ///  I unique serial number (6 bytes)
@@ -69,6 +96,18 @@ pub enum Format {
 }
 
 #[derive(Debug)]
+/// ### OwClient
+/// structure that manages the connection to owserver
+/// * Stores configuration settings
+/// * has public fuction for each message type to owserver
+///   * read
+///   * write
+///   * dir
+/// * convenience functions for printing results
+/// ### Creation
+/// ```
+/// let mut owserver = owrust::new() ;
+/// ```
 pub struct OwClient {
 	owserver:    String,
 	temperature: Temperature,
@@ -129,55 +168,14 @@ impl OwClient {
 		owc.make_flag() ;
 		owc
 	}
-	
-	/// set_temperature
-	/// sets the temperature scale in the flags that is used for queries
-	/// typically in the configuration step
-	pub fn set_temperature( &mut self, temp: Temperature ) {
-		self.temperature = temp ;
-		self.make_flag() ;
-	}
-	pub fn get_temperature( &self ) -> &str {
-		match self.temperature {
-			Temperature::CELSIUS => "Celsius",
-			Temperature::FARENHEIT => "Farenheit",
-			Temperature::KELVIN => "Kelvin",
-			Temperature::RANKINE => "Rankine",
-			Temperature::DEFAULT => "Default",
-		}
-	}
-	
-	/// set_pressure
-	/// sets the pressure scale in the flags that is used for queries
-	/// typically in the configuration step
-	pub fn set_pressure( &mut self, pres: Pressure ) {
-		self.pressure = pres ;
-		self.make_flag() ;
-	}
-	
-	/// set_format
-	/// sets the 1-wire device unique address format is used for display
-	/// typically in the configuration step
-	pub fn set_format( &mut self, dev: Format ) {
-		self.format = dev ;
-		self.make_flag() ;
-	}
-	
-	/// set_server
-	/// sets the newtwork address of the owserver being used
-	/// should be in IP:port format
-	/// example "127.0.0.0:4304"
-	pub fn set_server( &mut self, srv: String ) {
-		self.owserver = srv.clone() ;
-	}	
-	
+		
+	// make the owserver flag field based on configuration settings
 	fn make_flag( &mut self ) {
-		if self.bare {
-			self.flag = 0 ;
-		} else {
-			self.flag = OwClient::BUS_RET ;
+		let mut flag = 0 ;
+		if ! self.bare {
+			flag |= OwClient::BUS_RET ;
 		}
-		self.flag |= match self.temperature {
+		flag |= match self.temperature {
 			Temperature::CELSIUS   => OwClient::TEMPERATURE_C,
 			Temperature::FARENHEIT => OwClient::TEMPERATURE_F,
 			Temperature::KELVIN    => OwClient::TEMPERATURE_K,
@@ -185,7 +183,7 @@ impl OwClient {
 			Temperature::DEFAULT   => OwClient::TEMPERATURE_C,
 		} ;
 		
-		self.flag |= match self.pressure {
+		flag |= match self.pressure {
 			Pressure::MBAR => OwClient::PRESSURE_MBAR,
 			Pressure::MMHG => OwClient::PRESSURE_MMHG,
 			Pressure::INHG => OwClient::PRESSURE_INHG,
@@ -195,7 +193,7 @@ impl OwClient {
 			Pressure::DEFAULT => OwClient::PRESSURE_MBAR,
 		};
 		
-		self.flag |= match self.format {
+		flag |= match self.format {
 			Format::FI => OwClient::FORMAT_FI,
 			Format::FdI => OwClient::FORMAT_F_I,
 			Format::FIC => OwClient::FORMAT_FIC,
@@ -204,9 +202,7 @@ impl OwClient {
 			Format::FdIdC => OwClient::FORMAT_F_I_C,
 			Format::DEFAULT => OwClient::FORMAT_F_I,
 		} ;
-		if self.debug > 1 {
-			eprintln!("Flag now {:X}",self.flag) ;
-		}
+		self.flag = flag
 	}
 
 	fn new_nop(&self)-> OwMessageSend {
@@ -235,15 +231,15 @@ impl OwClient {
 		}
 	}
 	
-	fn make_write( &self, text: &str, value: &str ) -> Result<OwMessageSend,OwError> {
+	fn make_write( &self, text: &str, value: &Vec<u8> ) -> Result<OwMessageSend,OwError> {
 		let mut msg = self.new_nop() ;
 		msg.mtype = OwMessageSend::WRITE ;
-		if msg.add_path( text ) && msg.add_data( value ) {
-			Ok(msg)
-		} else {
-			eprintln!("Could not add value to sending message");
+		if ! msg.add_path( text ) {
+			eprintln!("Could not add path to sending message");
 			return Err(OwError::TextError);
 		}
+		msg.add_data( value ) ;
+		Ok(msg)
 	}
 
 	fn make_read( &self, text: &str ) -> Result<OwMessageSend,OwError> {
@@ -411,10 +407,22 @@ impl OwClient {
 		Ok(Vec::new())
 	}
 	
+	/// ### read
+	/// reads a value from a 1-wire file
+	/// * path is the 1-wire address of the file 
+	///    * (e.g. /10.112233445566/temperature)
+	/// * returns a `Vec<u8>` or error
+	/// * result can be displayed with **show_result**
 	pub fn read( &self, path: &str ) -> Result<Vec<u8>,OwError> {
 		self.get_value( path, OwClient::make_read)
 	}
-	pub fn write( &self, path: &str, value: &str ) -> Result<(),OwError> {
+	/// ### write
+	/// write a value to a 1-wire file
+	/// * path is the 1-wire address of the file
+	/// * value is a Vec<u8> byte sequence to write 
+	///    *(e.g. /10.112233445566/temperature)
+	/// * returns () or error
+	pub fn write( &self, path: &str, value: &Vec<u8> ) -> Result<(),OwError> {
 		let msg = OwClient::make_write( self, path, value ) ? ;
 		let rcv = self.send_get_single( msg ) ? ;
 		if rcv.ret == 0 {
@@ -423,6 +431,13 @@ impl OwClient {
 		eprintln!("Return code from owserver is error {}",rcv.ret);
 		return Err(OwError::OtherError);
 	}
+	/// ### dirall
+	/// returns the path directory listing
+	/// * uses a separate message for each entry
+	/// * honors the _--dir_ command line option
+	/// * honors the _--bare_ command line option
+	/// * returns Vec<u8> or error
+	/// * result can be displayed with **show_text**
 	pub fn dir( &self, path: &str ) -> Result<Vec<u8>,OwError> {
 		let msg = self.make_dir( path ) ? ;
 		let rcv = self.send_get_many( msg ) ? ;
@@ -432,11 +447,21 @@ impl OwClient {
 		}
 		Ok(Vec::new())
 	}
+	/// ### present
+	/// returns the existence of a 1-wire device
+	/// * Rarely used function
+	/// * path is the 1-wire address of the the device
+	/// * returns bool or error
 	pub fn present( &self, path: &str ) -> Result<bool,OwError> {
 		let msg = self.make_present( path ) ? ;
 		let rcv = self.send_get_single( msg ) ? ;
 		Ok(rcv.ret==0)
 	}
+	/// ### size
+	/// returns the length of read response
+	/// * Rarely used function
+	/// * path is the 1-wire address of the the device property
+	/// * returns i32 or error
 	pub fn size( &self, path: &str ) -> Result<i32,OwError> {
 		let msg = self.make_size( path ) ? ;
 		let rcv = self.send_get_single( msg ) ? ;
@@ -448,12 +473,28 @@ impl OwClient {
 			return Ok(ret) ;
 		}
 	}
+	/// ### dirall
+	/// returns the path directory listing
+	/// * efficiently uses a single message
+	/// * honors the _--dir_ command line option
+	/// * honors the _--bare_ command line option
+	/// * returns Vec<u8> or error
+	/// * result can be displayed with **show_text**
 	pub fn dirall( &self, path: &str ) -> Result<Vec<u8>,OwError> {
 		match self.slash {
 			true => self.get_value(path,OwClient::make_dirallslash),
 			_ => self.get_value(path,OwClient::make_dirall),
 		}
 	}
+	/// ### get
+	/// combines **dir** and **read** functionality
+	/// * _read_ if path is a file
+	/// * _dir_ if path is a directory
+	/// * honors the _--dir_ command line option
+	/// * honors the _--hex_ command line option
+	/// * honors the _--bare_ command line option
+	/// * returns Vec<u8> or error
+	/// * result can be displayed with **show_result**
 	pub fn get( &self, path: &str ) -> Result<Vec<u8>,OwError> {
 		match self.slash {
 			true => self.get_value( path, OwClient::make_getslash),
@@ -461,18 +502,27 @@ impl OwClient {
 		}
 	}
 
-	/// printable
-	/// prints the data returned from
-	///  dir, dirall
-	pub fn printable( &self, v: Vec<u8> ) -> String {
+	/// ### show_result 
+	/// prints the result of an owserver query
+	/// * honors the hex setting
+	/// * good for read*, get*
+	pub fn show_result( &self, v: Vec<u8> ) -> String {
 		if self.hex {
 			return v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ") ;
 		} else {
-			return match str::from_utf8(&v) {
-				Ok(s) => s.to_string() ,
-				Err(_e) => "Unprintable characters".to_string(),
-			} ;
+			return self.show_text(v);
 		}
+	}
+
+	/// ### show_test 
+	/// prints the result of an owserver query
+	/// * innores the hex setting
+	/// * good for dir*
+	pub fn show_text( &self, v: Vec<u8> ) -> String {
+		return match str::from_utf8(&v) {
+			Ok(s) => s.to_string() ,
+			Err(_e) => "Unprintable characters".to_string(),
+		} ;
 	}
 }
 
@@ -532,16 +582,11 @@ impl OwMessageSend {
 		true
 	}
 	
-	fn add_data( &mut self, data: &str ) -> bool {
+	fn add_data( &mut self, data: &Vec<u8> ) {
 		// Add data after path without nul
-		let dbytes = match ffi::CString::new( data ) {
-			Ok(s)=>s.into_bytes(),
-			Err(_e)=>return false,
-		} ;
-		self.content.extend_from_slice(&dbytes) ;
-		self.size = dbytes.len() as u32 ;
+		self.content.extend_from_slice(&data) ;
+		self.size = data.len() as u32 ;
 		self.payload += self.size ;
-		true
 	}
 }
 
@@ -573,6 +618,10 @@ impl OwMessageReceive {
 }
 
 #[derive(Debug)]
+/// ### OwError 
+/// the **owrust**-specific error type
+///
+/// A diagnostic message to stderr is generated at the point of error triggering
 pub enum OwError {
     TextError,
     NetworkError,
@@ -598,13 +647,13 @@ mod tests {
         // Regular
         owc.hex = false ;
 		let v :Vec<u8> = vec!(72,101,108,108,111);
-		let x = owc.printable(v) ;
+		let x = owc.show_result(v) ;
 		assert_eq!(x,"Hello");
 
 		// Hex
         owc.hex = true ;
 		let v :Vec<u8> = vec!(72,101,108,108,111);
-		let x = owc.printable(v) ;
+		let x = owc.show_result(v) ;
 		assert_eq!(x,"48 65 6C 6C 6F");
 	}
 }

@@ -1,7 +1,7 @@
 // owrust project
 // https://github.com/alfille/owrust
 //
-// This is a rust version of my C owfs code for talking to 1-wire devices via owserver
+// This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 //
 // MIT Licence
@@ -40,6 +40,20 @@ OTHER
   -d, --debug Internal process information (more times gives more info)
 ";
 
+
+/// ### command_line
+/// * Argument OwClient structure (mutable)
+/// * Uses command line arguments as source
+/// * Uses flags to set OwClient configuration
+/// * Computes owserver protocol flag field in OwClient
+/// * Returns all non-flags on command line (paths and values as required)
+/// ### Example
+/// ```
+/// use std::ffi::OsString;
+/// use pico_args::Arguments;
+/// let mut owserver = owrust::new() ; // new OwClient structure
+/// let paths = command_line( &mut owserver ).expect("Bad configuration");
+/// ```
 pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwError> {
 	// normal path -- from environment
 	let args = Arguments::from_env();
@@ -52,6 +66,20 @@ pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwEr
 	};
 }
 
+/// ### vector_line
+/// * Argument OwClient structure (mutable)
+/// * Argument Vec<OsString> insted of command line
+/// * Uses flags to set OwClient configuration
+/// * Computes owserver protocol flag field in OwClient
+/// * Returns all non-flags on command line (paths and values as required)
+/// ### Example
+/// ```
+/// use std::ffi::OsString;
+/// use pico_args::Arguments;
+/// let mut owserver = owrust::new() ; // new OwClient structure
+/// let args: Vec<OsString> = vec!("-C","--bare","/bus.0");
+/// let paths = command_line( &mut owserver, args ).expect("Bad configuration");
+/// ```
 pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) -> Result<Vec<String>,OwError> {
 	// normal path -- from envoronment
 	let args = Arguments::from_vec(raw_args);
@@ -120,45 +148,46 @@ Read a virtual 1-wire directory from owserver.
 
 	// Temperature
 	if args.contains(["-C","--Celsius"]) {
-		owserver.set_temperature( crate::Temperature::CELSIUS ) ;
+		owserver.temperature = crate::Temperature::CELSIUS ;
 	}
 	if args.contains(["-F","--Farenheit"]) {
-		owserver.set_temperature( crate::Temperature::FARENHEIT ) ;
+		owserver.temperature = crate::Temperature::FARENHEIT ;
 	}
 	if args.contains(["-K","--Kelvin"]) {
-		owserver.set_temperature( crate::Temperature::KELVIN ) ;
+		owserver.temperature = crate::Temperature::KELVIN ;
 	}
 	if args.contains(["-R","--Rankine"]) {
-		owserver.set_temperature( crate::Temperature::RANKINE ) ;
+		owserver.temperature = crate::Temperature::RANKINE ;
 	}
 
 	// Pressure
 	if args.contains("--mmhg") {
-		owserver.set_pressure( crate::Pressure::MMHG ) ;
+		owserver.pressure = crate::Pressure::MMHG ;
 	}
 	if args.contains("--inhg") {
-		owserver.set_pressure( crate::Pressure::INHG ) ;
+		owserver.pressure = crate::Pressure::INHG ;
 	}
 	if args.contains("--mbar") {
-		owserver.set_pressure( crate::Pressure::MBAR ) ;
+		owserver.pressure = crate::Pressure::MBAR ;
 	}
 	if args.contains("--atm") {
-		owserver.set_pressure( crate::Pressure::ATM ) ;
+		owserver.pressure = crate::Pressure::ATM ;
 	}
 	if args.contains("--pa") {
-		owserver.set_pressure( crate::Pressure::PA ) ;
+		owserver.pressure = crate::Pressure::PA ;
 	}
 	if args.contains("--psi") {
-		owserver.set_pressure( crate::Pressure::PSI ) ;
+		owserver.pressure = crate::Pressure::PSI ;
 	}
 
 	// Format
 	let d = args.opt_value_from_fn(["-f","--format"],parse_device) ? ;
-	owserver.set_format( d.unwrap_or(crate::Format::DEFAULT) ) ;
+	owserver.format = d.unwrap_or(crate::Format::DEFAULT) ;
 	
 	// Display
 	owserver.hex = args.contains("--hex") ;
 	owserver.slash = args.contains("--dir") ;
+	owserver.bare = args.contains("--bare") ;
 	
 	let y = args.opt_value_from_str("--size") ? ;
 	if let Some(x) = y {
@@ -172,7 +201,7 @@ Read a virtual 1-wire directory from owserver.
 	
 	// Server
 	let s: Option<String> = args.opt_value_from_str(["-s","--server"]) ? ;
-	owserver.set_server(s.unwrap_or(String::from("localhost:4304"))) ;
+	owserver.owserver = s.unwrap_or(String::from("localhost:4304")) ;
 
 	let mut result: Vec<String> = Vec::new() ;
 	for os in args.finish() {
@@ -184,6 +213,8 @@ Read a virtual 1-wire directory from owserver.
 	if owserver.debug > 1 {
 		eprintln!("{} path entries",result.len());
 	}
+	
+	owserver.make_flag() ;
 	Ok(result)
 }
 
@@ -226,14 +257,19 @@ mod tests {
 	
     #[test]
     fn test_temperature() {
-		for ts in ["Celsius","Kelvin","Farenheit","Rankine"] {
-			let test = ts.to_string() ;        
+		for ts in [
+			("Celsius",  crate::OwClient::TEMPERATURE_C,),
+			("Kelvin",   crate::OwClient::TEMPERATURE_K,),
+			("Farenheit",crate::OwClient::TEMPERATURE_F,),
+			("Rankine",  crate::OwClient::TEMPERATURE_R,),
+			] {
+			let test = ts.0.to_string() ;        
 			for t in [short(&test), long(&test)] {
 				let args: Vec<OsString> = vec![ OsString::from(&t)];
 				let mut owserver = crate::new() ;
 				let _ = vector_line( &mut owserver, args ) ;
-				let result = owserver.get_temperature() ;
-				assert_eq!(result, test);
+				let result = owserver.flag & ts.1 ;
+				assert_eq!(result, 0);
 			}
 		}
 	}

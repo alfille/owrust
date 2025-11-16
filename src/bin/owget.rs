@@ -1,8 +1,9 @@
-//! **owdir** -- _Rust version_
+//! **owget** -- _Rust version_
 //!
-//! ## Read a directory from owserver
+//! ## Read a value or directory from owserver
+//! Combines the functions of **owread** and **owdir**
 //! 
-//! **owdir** a tool in the 1-wire file system **OWFS**
+//! **owget** is a tool in the 1-wire file system **OWFS**
 //!
 //! This Rust version of **owdir** is part of **owrust** -- the _Rust language_ OWFS programs
 //! * **OWFS** [documentation](https://owfs.org) and [code](https://github.com/owfs/owfs)
@@ -17,52 +18,33 @@
 //! * `-s IP:port` (default `localhost:4304`)
 //! * `--dir`      Add trailing **/** for directory elements
 //! * `--bare`     Suppress non-device entries 
+//! * `--hex       show the value in hexidecimal
+//! * `--size n    return only n bytes
+//! * `--offset m  start return at byte m
 //! * -h           for full list of options
 //!
 //! ## PATH
-//! * 1-wire path
-//! * default is root **/**
-//! * more than one path can be given
+//! * 1-wire path to a file
+//! * No Default
+//! * More than one path can be given
 //!
 //! ## USAGE
 //! * owserver must be running in a network-accessible location
-//! * `owdir` is a command line program
+//! * `owget` is a command line program
 //! * output to stdout
 //! * errors to stderr
 //! 
 //! ## EXAMPLE
-//! Read root 1-wire directory
+//! Read a temperature
 //! ```
-//! owdir -s localhost:4304 /
-//! /10.67C6697351FF,/05.4AEC29CDBAAB,/bus.0,/uncached,/settings,/system,/statistics,/structure,/simultaneous,/alarm
+//! owget /10.67C6697351FF/temperature
+//!     85.7961 
 //! ```
-//! Read the root directory, dont'show non-devices and split entries to separate lines
+//! Get bare root directory
 //! ```
-//! owdir -s localhost:4304 --bare / | tr ',' '\n'
-//! /10.67C6697351FF
-//! /05.4AEC29CDBAAB
+//! owget --bare
+//! /10.67C6697351FF,/05.4AEC29CDBAAB
 //! ```
-//! Read a device directory and split entries to separate lines
-//! ```
-//! owdir -s localhost:4304 /10.67C6697351FF | tr ',' '\n'
-//! /10.67C6697351FF/address
-//! /10.67C6697351FF/alias
-//! /10.67C6697351FF/crc8
-//! /10.67C6697351FF/errata
-//! /10.67C6697351FF/family
-//! /10.67C6697351FF/id
-//! /10.67C6697351FF/latesttemp
-//! /10.67C6697351FF/locator
-//! /10.67C6697351FF/power
-//! /10.67C6697351FF/r_address
-//! /10.67C6697351FF/r_id
-//! /10.67C6697351FF/r_locator
-//! /10.67C6697351FF/scratchpad
-//! /10.67C6697351FF/temperature
-//! /10.67C6697351FF/temphigh
-//! /10.67C6697351FF/templow
-//! /10.67C6697351FF/type
-//! ``` 
 //! {c} 2025 Paul H Alfille -- MIT Licence
 
 // owrust project
@@ -79,28 +61,29 @@ fn main() {
 
 	// configure and get paths
 	match parse_args::command_line( &mut owserver ) {
+		
 		Ok( paths ) => {
 			if paths.len() == 0 {
 				// No path -- assume root
 				from_path( &owserver, "/".to_string() ) ;
 			} else {
-				// for each path in command line
+				// for each pathon command line
 				for path in paths.into_iter() {
 					from_path( &owserver, path ) ;
 				}
 			}
 		}
 		Err(_e) => {
-			eprintln!("owdir trouble");
+			eprintln!("owread trouble");
 		},
 	}
 }
 
-// print 1-wire directory contents
+// print 1-wire file contents (e.g. a sensor reading)
 fn from_path( owserver: &owrust::OwClient, path: String ) {
-	match owserver.dirall(&path) {
-		Ok(files) => {
-			println!("{}",owserver.show_text(files)) ;
+	match owserver.get(&path) {
+		Ok(values) => {
+			println!("{}",owserver.show_result(values)) ;
 		}
 		Err(_e) => {
 			eprintln!("Trouble with path {}",path);
