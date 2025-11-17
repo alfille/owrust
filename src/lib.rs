@@ -524,7 +524,31 @@ impl OwClient {
 			Err(_e) => "Unprintable characters".to_string(),
 		} ;
 	}
-}
+	
+	/// ### input_to_write
+	/// * if not --hex, use str as bytes directly, else
+	/// * read a hex string from the command line for **owwrite**
+	pub fn input_to_write( &self, s: &str ) -> Result<Vec<u8>,OwError> {
+    if ! self.hex {
+		return Ok(s.as_bytes().to_vec()) ;
+	}
+	// hex
+    if s.len() % 2 != 0 {
+		eprintln!("Hex string should be an even length");
+		return Err(OwError::TextError);
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|i| {
+            match u8::from_str_radix(&s[i..i+2], 16) {
+                Ok(byte) => Ok(byte),
+                Err(_e) => {
+					eprintln!("Bad hex characters");
+					Err(OwError::TextError) },
+            }
+        })
+        .collect()
+}}
 
 
 struct OwMessageSend {
