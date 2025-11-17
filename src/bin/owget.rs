@@ -53,7 +53,6 @@
 // This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
-use owrust ;
 use owrust::parse_args ;
 
 fn main() {
@@ -63,7 +62,7 @@ fn main() {
 	match parse_args::command_line( &mut owserver ) {
 		
 		Ok( paths ) => {
-			if paths.len() == 0 {
+			if paths.is_empty() {
 				// No path -- assume root
 				from_path( &owserver, "/".to_string() ) ;
 			} else {

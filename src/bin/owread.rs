@@ -55,7 +55,6 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust ;
 use owrust::parse_args ;
 
 fn main() {
@@ -65,7 +64,7 @@ fn main() {
 	match parse_args::command_line( &mut owserver ) {
 		
 		Ok( paths ) => {
-			if paths.len() == 0 {
+			if paths.is_empty() {
 				// No path
 				eprintln!( "No 1-wire path, so no readings" ) ;
 			} else {

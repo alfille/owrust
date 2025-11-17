@@ -58,12 +58,12 @@ pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwEr
 	// normal path -- from environment
 	let args = Arguments::from_env();
 	match parser( owserver, args ) {
-		Ok(v) => return Ok(v),
+		Ok(v) => Ok(v),
 		Err(e) => {
 			eprintln!("Parsing error {:?}",e);
-			return Err(OwError::ConfigError);
+			Err(OwError::ConfigError)
 		},
-	};
+	}
 }
 
 /// ### vector_line
@@ -84,12 +84,12 @@ pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) ->
 	// normal path -- from envoronment
 	let args = Arguments::from_vec(raw_args);
 	match parser( owserver, args ) {
-		Ok(v) => return Ok(v),
+		Ok(v) => Ok(v),
 		Err(e) => {
 			eprintln!("Parsing error {:?}",e);
-			return Err(OwError::ConfigError);
+			Err(OwError::ConfigError)
 		},
-	};
+	}
 }
 
 fn progname() -> String {
@@ -98,13 +98,13 @@ fn progname() -> String {
             // Get the full path (e.g., /path/to/my_app)
             // Extract the filename component (e.g., my_app)
             if let Some(name) = path.file_name() {
-				return name.to_string_lossy().into_owned() ;
+				name.to_string_lossy().into_owned()
             } else {
-				return "<no_name>".to_string() ;
+				"<no_name>".to_string()
 			}
         },
         Err(_e) => {
-			return "<error>".to_string() ;
+			"<error>".to_string()
 		}
 	}
 }

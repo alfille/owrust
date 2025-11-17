@@ -20,12 +20,10 @@
 //! use owrust ; // basic library
 //! use owrust::parse_args ; // configure from command line, file or OsString
 //!
-//! fn main() {
-//!   let mut owserver = owrust::new() ; // create an OwClient struct
+//! let mut owserver = owrust::new() ; // create an OwClient struct
 //!   // configure from command line and get 1-wire paths
-//!   let paths = parse_args::command_line( &mut owserver ) ;
+//! let paths = parse_args::command_line( &mut owserver ) ;
 //!   // Call any of the OwClient functions like dir, read, write,...
-//!   }
 //!   ```
   
 // owrust project
@@ -224,14 +222,14 @@ impl OwClient {
 		}
 		msg.mtype = mtype ;
 		if msg.add_path( text ) {
-			return Ok(msg);
+			Ok(msg)
 		} else {
 			eprintln!("Could not add path to sending message");
-			return Err(OwError::TextError);
+			Err(OwError::TextError)
 		}
 	}
 	
-	fn make_write( &self, text: &str, value: &Vec<u8> ) -> Result<OwMessageSend,OwError> {
+	fn make_write( &self, text: &str, value: &[u8] ) -> Result<OwMessageSend,OwError> {
 		let mut msg = self.new_nop() ;
 		msg.mtype = OwMessageSend::WRITE ;
 		if ! msg.add_path( text ) {
@@ -289,7 +287,7 @@ impl OwClient {
 			Ok(_s)=>Ok(()),
 			Err(e) => {
 				eprintln!("Trouble setting timeout: {:?}",e);
-				return Err(OwError::NetworkError);
+				Err(OwError::NetworkError)
 			},
 		}
 	}
@@ -410,7 +408,7 @@ impl OwClient {
 	/// ### read
 	/// reads a value from a 1-wire file
 	/// * path is the 1-wire address of the file 
-	///    * (e.g. /10.112233445566/temperature)
+	///   * (e.g. /10.112233445566/temperature)
 	/// * returns a `Vec<u8>` or error
 	/// * result can be displayed with **show_result**
 	pub fn read( &self, path: &str ) -> Result<Vec<u8>,OwError> {
@@ -420,16 +418,17 @@ impl OwClient {
 	/// write a value to a 1-wire file
 	/// * path is the 1-wire address of the file
 	/// * value is a Vec<u8> byte sequence to write 
-	///    *(e.g. /10.112233445566/temperature)
+	///   * (e.g. /10.112233445566/temperature)
 	/// * returns () or error
-	pub fn write( &self, path: &str, value: &Vec<u8> ) -> Result<(),OwError> {
+	pub fn write( &self, path: &str, value: &[u8] ) -> Result<(),OwError> {
 		let msg = OwClient::make_write( self, path, value ) ? ;
 		let rcv = self.send_get_single( msg ) ? ;
 		if rcv.ret == 0 {
-			return Ok( () ) ;
+			Ok( () )
+		} else {
+			eprintln!("Return code from owserver is error {}",rcv.ret);
+			Err(OwError::OtherError)
 		}
-		eprintln!("Return code from owserver is error {}",rcv.ret);
-		return Err(OwError::OtherError);
 	}
 	/// ### dirall
 	/// returns the path directory listing
@@ -468,9 +467,9 @@ impl OwClient {
 		let ret = rcv.ret;
 		if ret < 0 {
 			eprintln!("Return code from owserver is error {}",rcv.ret);
-			return Err(OwError::OtherError);
+			Err(OwError::OtherError)
 		} else {
-			return Ok(ret) ;
+			Ok(ret)
 		}
 	}
 	/// ### dirall
@@ -508,9 +507,9 @@ impl OwClient {
 	/// * good for read*, get*
 	pub fn show_result( &self, v: Vec<u8> ) -> String {
 		if self.hex {
-			return v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ") ;
+			v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ")
 		} else {
-			return self.show_text(v);
+			self.show_text(v)
 		}
 	}
 
@@ -519,10 +518,10 @@ impl OwClient {
 	/// * innores the hex setting
 	/// * good for dir*
 	pub fn show_text( &self, v: Vec<u8> ) -> String {
-		return match str::from_utf8(&v) {
+		match str::from_utf8(&v) {
 			Ok(s) => s.to_string() ,
 			Err(_e) => "Unprintable characters".to_string(),
-		} ;
+		}
 	}
 	
 	/// ### input_to_write
@@ -533,7 +532,7 @@ impl OwClient {
 		return Ok(s.as_bytes().to_vec()) ;
 	}
 	// hex
-    if s.len() % 2 != 0 {
+    if s.len().is_multiple_of(2) {
 		eprintln!("Hex string should be an even length");
 		return Err(OwError::TextError);
     }
@@ -606,9 +605,9 @@ impl OwMessageSend {
 		true
 	}
 	
-	fn add_data( &mut self, data: &Vec<u8> ) {
+	fn add_data( &mut self, data: &[u8] ) {
 		// Add data after path without nul
-		self.content.extend_from_slice(&data) ;
+		self.content.extend_from_slice(data) ;
 		self.size = data.len() as u32 ;
 		self.payload += self.size ;
 	}
