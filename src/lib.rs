@@ -504,7 +504,7 @@ impl OwClient {
 	/// ### show_result 
 	/// prints the result of an owserver query
 	/// * honors the hex setting
-	/// * good for read*, get*
+	/// * good for **read** and **get**
 	pub fn show_result( &self, v: Vec<u8> ) -> String {
 		if self.hex {
 			v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ")
@@ -515,8 +515,8 @@ impl OwClient {
 
 	/// ### show_test 
 	/// prints the result of an owserver query
-	/// * innores the hex setting
-	/// * good for dir*
+	/// * ignores the hex setting
+	/// * good for **dir**
 	pub fn show_text( &self, v: Vec<u8> ) -> String {
 		match str::from_utf8(&v) {
 			Ok(s) => s.to_string() ,
@@ -525,8 +525,9 @@ impl OwClient {
 	}
 	
 	/// ### input_to_write
+	/// take the value string for **owwrite**
 	/// * if not --hex, use str as bytes directly, else
-	/// * read a hex string from the command line for **owwrite**
+	/// * read as a hex string
 	pub fn input_to_write( &self, s: &str ) -> Result<Vec<u8>,OwError> {
     if ! self.hex {
 		return Ok(s.as_bytes().to_vec()) ;
