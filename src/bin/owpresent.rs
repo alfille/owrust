@@ -1,23 +1,20 @@
-//! **owread** -- _Rust version_
+//! **owpresent** -- _Rust version_
 //!
-//! ## Read a value from owserver ( from a 1-wire device )
+//! ## Does a file exiss (devise exists) on owserver
 //! 
-//! **owread** is a tool in the 1-wire file system **OWFS**
+//! **owpresent** is a tool in the 1-wire file system **OWFS**
 //!
-//! This Rust version of **owread** is part of **owrust** -- the _Rust language_ OWFS programs
+//! This Rust version of **owpresent** is part of **owrust** -- the _Rust language_ OWFS programs
 //! * **OWFS** [documentation](https://owfs.org) and [code](https://github.com/owfs/owfs)
 //! * **owrust** [repository](https://github.com/alfille/owrust)
 //!
 //! ## SYNTAX
 //! ```
-//! owread [OPTIONS] PATH
+//! owpresent [OPTIONS] PATH
 //! ```
 //!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
-//! * `--hex       show the value in hexidecimal
-//! * `--size n    return only n bytes
-//! * `--offset m  start return at byte m
 //! * -h           for full list of options
 //!
 //! ## PATH
@@ -25,24 +22,31 @@
 //! * No Default
 //! * More than one path can be given
 //!
-//! **owread** only works on files, not directories. Use **owget** to read both files and directories.
+//! **owpresent** works on files and directories.
 //!
 //! ## USAGE
 //! * owserver must be running in a network-accessible location
-//! * `owread` is a command line program
+//! * `owpresent` is a command line program
 //! * output to stdout
+//!   * `1` if present
+//!   * `0` if not present
 //! * errors to stderr
 //! 
 //! ## EXAMPLE
-//! Read a temperature
+//! Test presence of a device
 //! ```
-//! owread /10.67C6697351FF/temperature
-//!     85.7961 
+//! owpresent /10.67C6697351FF
+//! 1
 //! ```
-//! Read temperature in hex
+//! Test a file
 //! ```
-//! owread /10.67C6697351FF/temperature --hex
-//! 20 20 20 20 20 37 36 2E 31 35 38 35
+//! owpresent /10.67C6697351FF/temperature
+//! 1
+//! ```
+//! Test a device that isn't there
+//! ```
+//! owpresent /10.FFFFFFFFFFFF
+//! 0
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence
 
@@ -65,8 +69,8 @@ fn main() {
 		
 		Ok( paths ) => {
 			if paths.is_empty() {
-				// No path
-				eprintln!( "No 1-wire path, so no readings" ) ;
+				// No path -- assume root
+				from_path( &owserver, "/".to_string() ) ;
 			} else {
 				// for each pathon command line
 				for path in paths.into_iter() {
@@ -82,9 +86,13 @@ fn main() {
 
 // print 1-wire file contents (e.g. a sensor reading)
 fn from_path( owserver: &owrust::OwClient, path: String ) {
-	match owserver.read(&path) {
+	match owserver.present(&path) {
 		Ok(values) => {
-			println!("{}",owserver.show_result(values)) ;
+			if values {
+				println!("1");
+			} else {
+				println!("0");
+			}
 		}
 		Err(_e) => {
 			eprintln!("Trouble with path {}",path);
