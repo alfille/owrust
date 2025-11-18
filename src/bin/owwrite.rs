@@ -41,15 +41,13 @@
 //! * errors to stderr
 //! 
 //! ## EXAMPLE
-//! Read a temperature
+//! Read, write and reread a temperature high limit
 //! ```
-//! owread /10.67C6697351FF/temperature
-//!     85.7961 
-//! ```
-//! Read temperature in hex
-//! ```
-//! owread /10.67C6697351FF/temperature --hex
-//! 20 20 20 20 20 37 36 2E 31 35 38 35
+//! owread /10.67c6697351ff/temphigh
+//!      18.4024
+//! owwrite /10.67c6697351ff/temphigh 45
+//! owread /10.67c6697351ff/temphigh
+//!      45.0
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence
 
