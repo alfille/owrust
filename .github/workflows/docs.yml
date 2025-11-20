@@ -14,7 +14,7 @@ jobs:
 
       # --- 1. Build mdbook ---
       - name: 📖 Build mdbook
-        uses: peaceiris/actions-mdbook@v1.9.0
+        uses: peaceiris/actions-mdbook@v1.8.0
         with:
           # Builds the book into the ./book directory
           dest: book 
