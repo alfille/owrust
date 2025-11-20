@@ -1,0 +1,47 @@
+name: Documentation Build and Deploy
+
+on:
+  push:
+    branches:
+      - main  # Run when changes are pushed to the main branch
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      # --- 1. Build mdbook ---
+      - name: 📖 Build mdbook
+        uses: peaceiris/actions-mdbook@v1.9.0
+        with:
+          # Builds the book into the ./book directory
+          dest: book 
+
+      # --- 2. Build rustdoc ---
+      - name: 🦀 Setup Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: 📝 Build rustdoc
+        run: |
+          # Build docs for the current crate
+          cargo doc --no-deps
+          # Create a sub-directory for rustdoc inside the book directory
+          mkdir -p book/rustdoc/
+          # Copy the generated rustdoc HTML files to the combined output directory
+          cp -r target/doc/* book/rustdoc/
+        
+      # --- 3. Deploy to GitHub Pages ---
+      - name: 🚀 Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # The branch GitHub Pages is configured to use (usually gh-pages)
+          publish_branch: gh-pages
+          # The directory containing the combined output of mdbook and rustdoc
+          publish_dir: ./book
