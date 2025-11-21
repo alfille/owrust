@@ -34,17 +34,23 @@
 //! Read root 1-wire directory
 //! ```
 //! owdir -s localhost:4304 /
+//! ```
+//! ```text
 //! /10.67C6697351FF,/05.4AEC29CDBAAB,/bus.0,/uncached,/settings,/system,/statistics,/structure,/simultaneous,/alarm
 //! ```
 //! Read the root directory, dont'show non-devices and split entries to separate lines
 //! ```
 //! owdir -s localhost:4304 --bare / | tr ',' '\n'
+//! ```
+//! ```text
 //! /10.67C6697351FF
 //! /05.4AEC29CDBAAB
 //! ```
 //! Read a device directory and split entries to separate lines
 //! ```
 //! owdir -s localhost:4304 /10.67C6697351FF | tr ',' '\n'
+//! ```
+//! ```text
 //! /10.67C6697351FF/address
 //! /10.67C6697351FF/alias
 //! /10.67C6697351FF/crc8

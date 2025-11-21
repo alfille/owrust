@@ -10,3 +10,6 @@
   - [owwrite](owwrite.md)
   - [owpresent](owpresent.md)
 - [Library](library.md)
+- [Configuration](configuration.md)
+  - [Conf file](conf.md)
+  - [TOML file](toml.md)

@@ -37,11 +37,15 @@
 //! Read a temperature
 //! ```
 //! owread /10.67C6697351FF/temperature
+//! ```
+//! ```text
 //!     85.7961 
 //! ```
 //! Read temperature in hex
 //! ```
 //! owread /10.67C6697351FF/temperature --hex
+//! ```
+//! ```text
 //! 20 20 20 20 20 37 36 2E 31 35 38 35
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence

@@ -38,11 +38,15 @@
 //! Read a temperature
 //! ```
 //! owget /10.67C6697351FF/temperature
+//! ```
+//! ```text
 //!     85.7961 
 //! ```
 //! Get bare root directory
 //! ```
 //! owget --bare
+//! ```
+//! ```text
 //! /10.67C6697351FF,/05.4AEC29CDBAAB
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence

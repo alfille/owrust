@@ -69,7 +69,7 @@ pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwEr
 
 /// ### vector_line
 /// * Argument OwClient structure (mutable)
-/// * Argument Vec<OsString> insted of command line
+/// * Argument `Vec<OsString>` insted of command line
 /// * Uses flags to set OwClient configuration
 /// * Computes owserver protocol flag field in OwClient
 /// * Returns all non-flags on command line (paths and values as required)

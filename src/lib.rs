@@ -417,7 +417,7 @@ impl OwClient {
     /// ### write
     /// write a value to a 1-wire file
     /// * path is the 1-wire address of the file
-    /// * value is a Vec<u8> byte sequence to write 
+    /// * value is a `Vec<u8>` byte sequence to write 
     ///   * (e.g. /10.112233445566/temperature)
     /// * returns () or error
     pub fn write( &self, path: &str, value: &[u8] ) -> Result<(),OwError> {
@@ -435,7 +435,7 @@ impl OwClient {
     /// * uses a separate message for each entry
     /// * honors the _--dir_ command line option
     /// * honors the _--bare_ command line option
-    /// * returns Vec<u8> or error
+    /// * returns `Vec<u8>` or error
     /// * result can be displayed with **show_text**
     pub fn dir( &self, path: &str ) -> Result<Vec<u8>,OwError> {
         let msg = self.make_dir( path ) ? ;
@@ -460,7 +460,7 @@ impl OwClient {
     /// returns the length of read response
     /// * Rarely used function
     /// * path is the 1-wire address of the the device property
-    /// * returns i32 or error
+    /// * returns `i32` or error
     pub fn size( &self, path: &str ) -> Result<i32,OwError> {
         let msg = self.make_size( path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
@@ -477,7 +477,7 @@ impl OwClient {
     /// * efficiently uses a single message
     /// * honors the _--dir_ command line option
     /// * honors the _--bare_ command line option
-    /// * returns Vec<u8> or error
+    /// * returns `Vec<u8>` or error
     /// * result can be displayed with **show_text**
     pub fn dirall( &self, path: &str ) -> Result<Vec<u8>,OwError> {
         match self.slash {
@@ -492,7 +492,7 @@ impl OwClient {
     /// * honors the _--dir_ command line option
     /// * honors the _--hex_ command line option
     /// * honors the _--bare_ command line option
-    /// * returns Vec<u8> or error
+    /// * returns `Vec<u8>` or error
     /// * result can be displayed with **show_result**
     pub fn get( &self, path: &str ) -> Result<Vec<u8>,OwError> {
         match self.slash {

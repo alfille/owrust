@@ -36,16 +36,22 @@
 //! Test presence of a device
 //! ```
 //! owpresent /10.67C6697351FF
+//! ```
+//! ```text
 //! 1
 //! ```
 //! Test a file
 //! ```
 //! owpresent /10.67C6697351FF/temperature
+//! ```
+//! ```text
 //! 1
 //! ```
 //! Test a device that isn't there
 //! ```
 //! owpresent /10.FFFFFFFFFFFF
+//! ```
+//! ```text
 //! 0
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence
