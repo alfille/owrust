@@ -225,8 +225,9 @@ impl OwClient {
         if msg.add_path( text ) {
             Ok(msg)
         } else {
-            eprintln!("Could not add path to sending message");
-            Err(OwError::TextError)
+            Err(OwError::new(
+				&format!("Could not add path to sending message")
+            ))
         }
     }
     
@@ -234,8 +235,9 @@ impl OwClient {
         let mut msg = self.new_nop() ;
         msg.mtype = OwMessageSend::WRITE ;
         if ! msg.add_path( text ) {
-            eprintln!("Could not add path to sending message");
-            return Err(OwError::TextError);
+            return Err(OwError::new(
+				&format!("Could not add path to sending message")
+				));
         }
         msg.add_data( value ) ;
         Ok(msg)
@@ -286,10 +288,9 @@ impl OwClient {
         // Set timeout
         match stream.set_read_timeout( Some(Duration::from_secs(5))) {
             Ok(_s)=>Ok(()),
-            Err(e) => {
-                eprintln!("Trouble setting timeout: {:?}",e);
-                Err(OwError::NetworkError)
-            },
+            Err(e) => Err( OwError::new(
+                &format!("Trouble setting timeout: {:?}",e)
+                )),
         }
     }
     
@@ -337,20 +338,18 @@ impl OwClient {
         let mut stream = match TcpStream::connect( &self.owserver ) {
             Ok(s)=> s,
             Err(e) => {
-                eprintln!("Trouble connecting to owserver: {:?}",e) ;
-                return Err(OwError::NetworkError) ;
+                return Err(OwError::new(
+					&format!("Trouble connecting to owserver: {:?}",e)
+					)) ;
             },
         };
             
         match stream.write_all( &msg ) {
-            Ok(_s)=> (),
-            Err(e) => {
-                eprintln!("Trouble sending to owserver: {:?}",e) ;
-                return Err(OwError::NetworkError) ;
-            },
-        } ;
-        
-        Ok(stream)
+            Ok(_s) => Ok(stream),
+            Err(e) => Err(OwError::new(
+                &format!("Trouble sending to owserver: {:?}",e)
+                )),
+        }
     }
 
     fn get_packet( &self, mut stream: &TcpStream ) -> Result<OwMessageReceive,OwError> {
@@ -363,9 +362,10 @@ impl OwClient {
             match stream.read_exact( &mut buffer ) {
                 Ok(_s)=>(),
                 Err(e) => {
-                    eprintln!("Trouble receiving header: {:?}",e);
-                    return Err(OwError::NetworkError);
-                },
+					return Err(OwError::new(
+                        &format!("Trouble receiving header: {:?}",e)
+                        ));
+				  },
             };
             let mut rcv = OwMessageReceive::new(buffer);
             
@@ -387,8 +387,9 @@ impl OwClient {
                 match stream.read_exact(&mut rcv.content ) {
                     Ok(_s)=>(),
                     Err(e) => {
-                        eprintln!("Trouble receiving payload: {:?}",e);
-                        return Err(OwError::NetworkError);
+						return Err(OwError::new(
+                        &format!("Trouble receiving payload: {:?}",e)
+                        ));
                     },
                 } ;
             }
@@ -427,10 +428,12 @@ impl OwClient {
         if rcv.ret == 0 {
             Ok( () )
         } else {
-            eprintln!("Return code from owserver is error {}",rcv.ret);
-            Err(OwError::OtherError)
+            Err(OwError::new(
+				&format!("Return code from owserver is error {}",rcv.ret)
+				))
         }
     }
+
     /// ### dirall
     /// returns the path directory listing
     /// * uses a separate message for each entry
@@ -447,6 +450,7 @@ impl OwClient {
         }
         Ok(Vec::new())
     }
+
     /// ### present
     /// returns the existence of a 1-wire device
     /// * Rarely used function
@@ -457,6 +461,7 @@ impl OwClient {
         let rcv = self.send_get_single( msg ) ? ;
         Ok(rcv.ret==0)
     }
+
     /// ### size
     /// returns the length of read response
     /// * Rarely used function
@@ -467,8 +472,7 @@ impl OwClient {
         let rcv = self.send_get_single( msg ) ? ;
         let ret = rcv.ret;
         if ret < 0 {
-            eprintln!("Return code from owserver is error {}",rcv.ret);
-            Err(OwError::OtherError)
+            Err(OwError::new(&format!("Return code from owserver is error {}",rcv.ret)))
         } else {
             Ok(ret)
         }
@@ -506,9 +510,9 @@ impl OwClient {
     /// prints the result of an owserver query
     /// * honors the hex setting
     /// * good for **read** and **get**
-    pub fn show_result( &self, v: Vec<u8> ) -> String {
+    pub fn show_result( &self, v: Vec<u8> ) -> Result<String,OwError> {
         if self.hex {
-            v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" ")
+            Ok(v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" "))
         } else {
             self.show_text(v)
         }
@@ -518,10 +522,12 @@ impl OwClient {
     /// prints the result of an owserver query
     /// * ignores the hex setting
     /// * good for **dir**
-    pub fn show_text( &self, v: Vec<u8> ) -> String {
+    pub fn show_text( &self, v: Vec<u8> ) -> Result<String,OwError> {
         match str::from_utf8(&v) {
-            Ok(s) => s.to_string() ,
-            Err(_e) => "Unprintable characters".to_string(),
+            Ok(s) => Ok(s.to_string()) ,
+			Err(e) => Err(OwError::new(
+				&format!("Unprintable characters {}",e)
+				)),
         }
     }
     
@@ -535,19 +541,19 @@ impl OwClient {
     }
     // hex
     if ! s.len().is_multiple_of(2) {
-        eprintln!("Hex string should be an even length");
-        return Err(OwError::TextError);
+        return Err(OwError::new(&format!("Hex string should be an even length"))) ;
     }
     (0..s.len())
         .step_by(2)
         .map(|i| {
             match u8::from_str_radix(&s[i..i+2], 16) {
                 Ok(byte) => Ok(byte),
-                Err(_e) => {
-                    eprintln!("Bad hex characters");
-                    Err(OwError::TextError) },
-            }
-        })
+                Err(e) => Err(OwError::new(
+					&format!("Bad hex characters {}",e)
+					)
+				),
+			}}
+		)
         .collect()
 }}
 
@@ -655,7 +661,7 @@ impl OwError{
 	/// Create the error struct with the explanation
 	pub fn new(msg: &str) -> OwError {
 		OwError{
-			details: msg.th_string(),
+			details: msg.to_string(),
 		}
 	}
 }

@@ -237,7 +237,7 @@ Read a virtual 1-wire directory from owserver.
     for os in args.finish() {
         match os.into_string() {
             Ok(s) => result.push(s),
-            Err(e) => {
+            Err(_e) => {
 				return Err(OwError::new(
 				&format!("Bad command line entry.")
 				))

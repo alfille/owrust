@@ -76,20 +76,27 @@ fn main() {
 				}
 			}
 		}
-		Err(_e) => {
+		Err(e) => {
 			eprintln!("owread trouble {}",e);
-		},
+		}
 	}
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
 fn from_path( owserver: &owrust::OwClient, path: String ) {
 	match owserver.get(&path) {
-		Ok(values) => {
-			println!("{}",owserver.show_result(values)) ;
-		}
-		Err(_e) => {
+		Ok(value) => {
+			match String::from_utf8(value) {
+				Ok(v) => {
+					println!("{}",v) ;
+				},
+				Err(e) => {
+					eprintln!("Unprintable string {}",e);
+				},
+			} ;
+		},
+		Err(e) => {
 			eprintln!("Trouble with path {} Error {}",path,e);
-		}
+		},
 	}
 }	

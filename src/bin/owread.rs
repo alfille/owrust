@@ -88,7 +88,14 @@ fn main() {
 fn from_path( owserver: &owrust::OwClient, path: String ) {
 	match owserver.read(&path) {
 		Ok(values) => {
-			println!("{}",owserver.show_result(values)) ;
+			match owserver.show_result(values) {
+				Ok(s) => {
+					println!("{}",s);
+				},
+				Err(e) => {
+					eprintln!("Reading error {}",e) ;
+				},
+			}
 		}
 		Err(e) => {
 			eprintln!("Trouble with path {} Error {}",path,e);

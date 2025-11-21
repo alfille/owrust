@@ -94,10 +94,10 @@ fn main() {
 					from_path( &owserver, path ) ;
 				}
 			}
-		}
+		},
 		Err(e) => {
 			eprintln!("owdir trouble {}",e);
-		},
+		}
 	}
 }
 
@@ -105,8 +105,15 @@ fn main() {
 fn from_path( owserver: &owrust::OwClient, path: String ) {
 	match owserver.dirall(&path) {
 		Ok(files) => {
-			println!("{}",owserver.show_text(files)) ;
-		}
+			match owserver.show_text(files) {
+				Ok(t) => {
+					println!("{}",t);
+				},
+				Err(e) => {
+					eprintln!("Trouble displaying directory {}",e);
+				}
+			} ;
+		},
 		Err(e) => {
 			eprintln!("Trouble with path {} Error {}",path,e);
 		}
