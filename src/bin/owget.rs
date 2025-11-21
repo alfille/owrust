@@ -77,7 +77,7 @@ fn main() {
 			}
 		}
 		Err(_e) => {
-			eprintln!("owread trouble");
+			eprintln!("owread trouble {}",e);
 		},
 	}
 }
@@ -89,7 +89,7 @@ fn from_path( owserver: &owrust::OwClient, path: String ) {
 			println!("{}",owserver.show_result(values)) ;
 		}
 		Err(_e) => {
-			eprintln!("Trouble with path {}",path);
+			eprintln!("Trouble with path {} Error {}",path,e);
 		}
 	}
 }	

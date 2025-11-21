@@ -95,8 +95,8 @@ fn main() {
 				}
 			}
 		}
-		Err(_e) => {
-			eprintln!("owdir trouble");
+		Err(e) => {
+			eprintln!("owdir trouble {}",e);
 		},
 	}
 }
@@ -107,8 +107,8 @@ fn from_path( owserver: &owrust::OwClient, path: String ) {
 		Ok(files) => {
 			println!("{}",owserver.show_text(files)) ;
 		}
-		Err(_e) => {
-			eprintln!("Trouble with path {}",path);
+		Err(e) => {
+			eprintln!("Trouble with path {} Error {}",path,e);
 		}
 	}
 }	

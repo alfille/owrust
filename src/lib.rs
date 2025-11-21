@@ -36,6 +36,7 @@
 // {c} 2025 Paul H Alfille
 
 use std::ffi ;
+use std::fmt ;
 use std::io::{Read,Write} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
@@ -533,7 +534,7 @@ impl OwClient {
         return Ok(s.as_bytes().to_vec()) ;
     }
     // hex
-    if s.len().is_multiple_of(2) {
+    if ! s.len().is_multiple_of(2) {
         eprintln!("Hex string should be an even length");
         return Err(OwError::TextError);
     }
@@ -641,17 +642,33 @@ impl OwMessageReceive {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 /// ### OwError 
 /// the **owrust**-specific error type
 ///
-/// A diagnostic message to stderr is generated at the point of error triggering
-pub enum OwError {
-    TextError,
-    NetworkError,
-    ConfigError,
-    OtherError,
-}           
+/// details field is a String with error details
+pub struct OwError {
+    details: String,
+}
+
+impl OwError{
+	/// Create the error struct with the explanation
+	pub fn new(msg: &str) -> OwError {
+		OwError{
+			details: msg.th_string(),
+		}
+	}
+}
+impl fmt::Display for OwError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "OwError: {}", self.details)
+    }
+}
+impl std::error::Error for OwError {
+	fn description( &self ) -> &str {
+		&self.details
+	}
+}
 
 #[cfg(test)]
 mod tests {

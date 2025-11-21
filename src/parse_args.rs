@@ -60,10 +60,9 @@ pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwEr
     let args = Arguments::from_env();
     match parser( owserver, args ) {
         Ok(v) => Ok(v),
-        Err(e) => {
-            eprintln!("Parsing error {:?}",e);
-            Err(OwError::ConfigError)
-        },
+        Err(e) => Err(OwError::new(
+			&format!("Parsing error {:?}",e)
+			)),
     }
 }
 
@@ -91,11 +90,10 @@ pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) ->
     let args = Arguments::from_vec(raw_args);
     match parser( owserver, args ) {
         Ok(v) => Ok(v),
-        Err(e) => {
-            eprintln!("Parsing error {:?}",e);
-            Err(OwError::ConfigError)
-        },
-    }
+        Err(e) => Err(OwError::new(
+			&format!("Parsing error {:?}",e)
+			)),
+	}
 }
 
 fn progname() -> String {
@@ -109,13 +107,11 @@ fn progname() -> String {
                 "<no_name>".to_string()
             }
         },
-        Err(_e) => {
-            "<error>".to_string()
-        }
+        Err(_) => "BadEnv".to_string(),
     }
 }
 
-fn parser( owserver: &mut crate::OwClient, mut args: Arguments ) -> Result<Vec<String>,pico_args::Error> {
+fn parser( owserver: &mut crate::OwClient, mut args: Arguments ) -> Result<Vec<String>,OwError> {
 
     // Handle the help flag first
     if args.contains(["-h", "--help"]) {
@@ -187,7 +183,14 @@ Read a virtual 1-wire directory from owserver.
     }
 
     // Format
-    let d = args.opt_value_from_fn(["-f","--format"],parse_device) ? ;
+    let d = match args.opt_value_from_fn(["-f","--format"],parse_device) {
+		 Ok(d) => d,
+		 Err(e) => {
+			 return Err(OwError::new(
+				&format!("Error in format spec {}",e)
+			)) ; 
+			},
+		} ;
     owserver.format = d.unwrap_or(crate::Format::DEFAULT) ;
     
     // Display
@@ -195,25 +198,50 @@ Read a virtual 1-wire directory from owserver.
     owserver.slash = args.contains("--dir") ;
     owserver.bare = args.contains("--bare") ;
     
-    let y = args.opt_value_from_str("--size") ? ;
+    let y = match args.opt_value_from_str("--size") {
+		 Ok(y) => y,
+		 Err(e) => {
+			 return Err(OwError::new(
+				&format!("Error in size spec {}",e)
+			)) ; 
+			},
+		} ;
     if let Some(x) = y {
         owserver.size = x ;
     }
     
-    let y = args.opt_value_from_str("--offset") ? ;
+    let y = match args.opt_value_from_str("--offset") {
+		 Ok(y) => y,
+		 Err(e) => {
+			 return Err(OwError::new(
+				&format!("Error in offset spec {}",e)
+			)) ; 
+			},
+		} ;
     if let Some(x) = y {
         owserver.offset = x ;
     }
     
     // Server
-    let s: Option<String> = args.opt_value_from_str(["-s","--server"]) ? ;
+    let s: Option<String> = match args.opt_value_from_str(["-s","--server"]) {
+		 Ok(s) => s,
+		 Err(e) => {
+			 return Err(OwError::new(
+				&format!("Error in server spec {}",e)
+			)) ; 
+			},
+		} ;
     owserver.owserver = s.unwrap_or(String::from("localhost:4304")) ;
 
     let mut result: Vec<String> = Vec::new() ;
     for os in args.finish() {
         match os.into_string() {
             Ok(s) => result.push(s),
-            Err(_) => eprintln!("Bad command line entry."),
+            Err(e) => {
+				return Err(OwError::new(
+				&format!("Bad command line entry.")
+				))
+				},
         }
     }
     if owserver.debug > 1 {
@@ -224,7 +252,7 @@ Read a virtual 1-wire directory from owserver.
     Ok(result)
 }
 
-fn parse_device(s: &str) -> Result<crate::Format, &'static str> {
+fn parse_device(s: &str) -> Result<crate::Format, OwError> {
     match s {
         "fi" => Ok(crate::Format::FI),
         "f.i" => Ok(crate::Format::FdI),
@@ -232,7 +260,9 @@ fn parse_device(s: &str) -> Result<crate::Format, &'static str> {
         "f.ic" => Ok(crate::Format::FdIC),
         "fi.c" => Ok(crate::Format::FIdC),
         "f.i.c" => Ok(crate::Format::FdIdC),
-        _  => Err("Not a number"),
+        _  => Err(OwError::new(
+			&format!("Invalid format {}",s)
+			)),
     }
 }
 

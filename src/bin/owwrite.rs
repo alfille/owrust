@@ -80,8 +80,8 @@ fn main() {
 				}
 			}
 		}
-		Err(_e) => {
-			eprintln!("owread trouble");
+		Err(e) => {
+			eprintln!("owread trouble {}",e);
 		},
 	}
 }
@@ -90,8 +90,8 @@ fn main() {
 fn from_path( owserver: &owrust::OwClient, path: &String, value: &String ) {
 	match owserver.write( path, value.as_bytes() ) {
 		Ok(_) => (),
-		Err(_) => {
-			eprintln!("Trouble with write -- path {} value {}",path, value);
+		Err(e) => {
+			eprintln!("Trouble with write -- path {} value {} Error {}",path, value, e);
 		},
 	}
 }	
