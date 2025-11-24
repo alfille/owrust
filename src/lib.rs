@@ -398,7 +398,7 @@ impl OwClient {
         }
     }
     
-    fn get_value( &self, path: &str, f: fn(&OwClient, &str)->OeEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
+    fn get_value( &self, path: &str, f: fn(&OwClient, &str)->OwEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
         let msg = f( self, path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         if rcv.payload > 0 {
@@ -699,34 +699,55 @@ impl OwMessageReceive {
     }
 }
 
+/// ### OwEResult
+///
+/// type alias for Result<_,OwError> to reduce boilerplate
+/// `OwEResult<String>` is equivalent to `Result<String,OwError>`
 pub type OwEResult<T> = std::result::Result<T,OwError> ;
 
-#[derive(Debug,Clone)]
+#[derive(Debug)]
 /// ### OwError 
 /// the **owrust**-specific error type
 ///
 /// details field is a String with error details
-pub struct OwError {
-    details: String,
+pub enum OwError {
+	General(String),
+	Input(String),
+	Output(String),
+    Io(std::io::Error),
 }
 
 impl OwError{
     /// Create the error struct with the explanation
     pub fn new(msg: &str) -> OwError {
-        OwError{
+        OwError {
             details: msg.to_string(),
         }
     }
 }
 impl fmt::Display for OwError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "OwError: {}", self.details)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			OwError::General(e) => write!(f,"An error: {}",e),
+			OwError::Input(e) => write!(f,"Input error: {}",e),
+			OwError::Output(e) => write!(f,"Output error: {}",e),
+			OwError::Io(e) => write!(f,"IO error: {}",e),
+		}
     }
 }
 impl std::error::Error for OwError {
-    fn description( &self ) -> &str {
-        &self.details
+    fn source( &self ) -> Option<&(dyn std::error::Error + 'static)> {
+		match self {
+			OwError::Io(e) => Some(e),
+			_ => None,
+		}
     }
+}
+
+impl From<std::io::Error> for OwError {
+	fn from(e: std::io::Error) -> Self {
+		OwError::Io(e)
+	}
 }
 
 #[cfg(test)]
