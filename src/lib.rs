@@ -556,7 +556,8 @@ impl OwClient {
             }}
         )
         .collect()
-}}
+    }
+}
 
 
 struct OwMessageSend {
@@ -658,6 +659,43 @@ impl OwMessageReceive {
     }
     fn tell( &self) {
         eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
+    }
+
+    fn bare_filter( &mut self ) -> Result<(),OwError> {
+        match String::from_utf8(self.content.clone()) {
+            Ok(s) => {
+                self.content = s.split(',')
+                .filter( |s| ! OwMessageReceive::is_bad_bare(s) )
+                .collect::<Vec<&str>>()
+                .join(",")
+                .as_bytes()
+                .to_vec();
+                self.payload = self.content.len() as u32 ;
+                Ok(())
+            },
+            Err(e) => Err(OwError::new(
+                &format!("Bad characters in directory listing {}",e)
+                )),
+        }
+    }
+
+    // filter devices properties that are less interesting
+    fn is_bad_bare(path: &str) -> bool {
+        let bare_bad: Vec<&str> = vec![
+            "address",
+            "crc8",
+            "family",
+            "id",
+            "locator",
+            "r_address",
+            "r_id",
+            "r_locator",
+            "type",
+            ];
+        match path.split('/').rev().find(|s| !s.is_empty()) {
+            Some(s) => bare_bad.contains(&s),
+            _ => false,
+        }
     }
 }
 
