@@ -225,9 +225,7 @@ impl OwClient {
         if msg.add_path( text ) {
             Ok(msg)
         } else {
-            Err(OwError::new(
-				&format!("Could not add path to sending message")
-            ))
+            Err(OwError::new("Could not add path to sending message"))
         }
     }
     
@@ -235,9 +233,7 @@ impl OwClient {
         let mut msg = self.new_nop() ;
         msg.mtype = OwMessageSend::WRITE ;
         if ! msg.add_path( text ) {
-            return Err(OwError::new(
-				&format!("Could not add path to sending message")
-				));
+            return Err(OwError::new("Could not add path to sending message"));
         }
         msg.add_data( value ) ;
         Ok(msg)
@@ -339,8 +335,8 @@ impl OwClient {
             Ok(s)=> s,
             Err(e) => {
                 return Err(OwError::new(
-					&format!("Trouble connecting to owserver: {:?}",e)
-					)) ;
+                    &format!("Trouble connecting to owserver: {:?}",e)
+                    )) ;
             },
         };
             
@@ -362,10 +358,10 @@ impl OwClient {
             match stream.read_exact( &mut buffer ) {
                 Ok(_s)=>(),
                 Err(e) => {
-					return Err(OwError::new(
+                    return Err(OwError::new(
                         &format!("Trouble receiving header: {:?}",e)
                         ));
-				  },
+                  },
             };
             let mut rcv = OwMessageReceive::new(buffer);
             
@@ -387,7 +383,7 @@ impl OwClient {
                 match stream.read_exact(&mut rcv.content ) {
                     Ok(_s)=>(),
                     Err(e) => {
-						return Err(OwError::new(
+                        return Err(OwError::new(
                         &format!("Trouble receiving payload: {:?}",e)
                         ));
                     },
@@ -429,8 +425,8 @@ impl OwClient {
             Ok( () )
         } else {
             Err(OwError::new(
-				&format!("Return code from owserver is error {}",rcv.ret)
-				))
+                &format!("Return code from owserver is error {}",rcv.ret)
+                ))
         }
     }
 
@@ -525,9 +521,9 @@ impl OwClient {
     pub fn show_text( &self, v: Vec<u8> ) -> Result<String,OwError> {
         match str::from_utf8(&v) {
             Ok(s) => Ok(s.to_string()) ,
-			Err(e) => Err(OwError::new(
-				&format!("Unprintable characters {}",e)
-				)),
+            Err(e) => Err(OwError::new(
+                &format!("Unprintable characters {}",e)
+                )),
         }
     }
     
@@ -541,7 +537,7 @@ impl OwClient {
     }
     // hex
     if ! s.len().is_multiple_of(2) {
-        return Err(OwError::new(&format!("Hex string should be an even length"))) ;
+        return Err(OwError::new("Hex string should be an even length")) ;
     }
     (0..s.len())
         .step_by(2)
@@ -549,11 +545,11 @@ impl OwClient {
             match u8::from_str_radix(&s[i..i+2], 16) {
                 Ok(byte) => Ok(byte),
                 Err(e) => Err(OwError::new(
-					&format!("Bad hex characters {}",e)
-					)
-				),
-			}}
-		)
+                    &format!("Bad hex characters {}",e)
+                    )
+                ),
+            }}
+        )
         .collect()
 }}
 
@@ -658,22 +654,22 @@ pub struct OwError {
 }
 
 impl OwError{
-	/// Create the error struct with the explanation
-	pub fn new(msg: &str) -> OwError {
-		OwError{
-			details: msg.to_string(),
-		}
-	}
+    /// Create the error struct with the explanation
+    pub fn new(msg: &str) -> OwError {
+        OwError{
+            details: msg.to_string(),
+        }
+    }
 }
 impl fmt::Display for OwError {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "OwError: {}", self.details)
     }
 }
 impl std::error::Error for OwError {
-	fn description( &self ) -> &str {
-		&self.details
-	}
+    fn description( &self ) -> &str {
+        &self.details
+    }
 }
 
 #[cfg(test)]
