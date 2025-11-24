@@ -11,7 +11,7 @@
 use std::ffi::OsString;
 use pico_args::Arguments;
 use std::{env,process} ;
-use crate::OwError ;
+use crate::{OwError,OwEResult} ;
 
 const HELP: &str = "\
 .
@@ -55,7 +55,7 @@ OTHER
 /// let mut owserver = owrust::new() ; // new OwClient structure
 /// let paths = command_line( &mut owserver ).expect("Bad configuration");
 /// ```
-pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwError> {
+pub fn command_line( owserver: &mut crate::OwClient ) -> OwEResult<Vec<String>> {
     // normal path -- from environment
     let args = Arguments::from_env();
     match parser( owserver, args ) {
@@ -85,7 +85,7 @@ pub fn command_line( owserver: &mut crate::OwClient ) -> Result<Vec<String>,OwEr
 ///     );
 /// let paths = vector_line( &mut owserver, args ).expect("Bad configuration");
 /// ```
-pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) -> Result<Vec<String>,OwError> {
+pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) -> OwEResult<Vec<String>> {
     // normal path -- from envoronment
     let args = Arguments::from_vec(raw_args);
     match parser( owserver, args ) {
@@ -111,7 +111,7 @@ fn progname() -> String {
     }
 }
 
-fn parser( owserver: &mut crate::OwClient, mut args: Arguments ) -> Result<Vec<String>,OwError> {
+fn parser( owserver: &mut crate::OwClient, mut args: Arguments ) -> OwEResult<Vec<String>> {
 
     // Handle the help flag first
     if args.contains(["-h", "--help"]) {
@@ -250,7 +250,7 @@ Read a virtual 1-wire directory from owserver.
     Ok(result)
 }
 
-fn parse_device(s: &str) -> Result<crate::Format, OwError> {
+fn parse_device(s: &str) -> OwEResult<crate::Format> {
     match s {
         "fi" => Ok(crate::Format::FI),
         "f.i" => Ok(crate::Format::FdI),
