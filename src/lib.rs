@@ -117,8 +117,9 @@ pub struct OwClient {
     slash:       bool,
     hex:         bool,
     bare:        bool,
+    persistence: bool,
     debug:       u32,
-    flag:        u32,
+    flags:       u32,
 }
 
 impl OwClient {
@@ -161,20 +162,24 @@ impl OwClient {
             slash: false,
             hex: false,
             bare: false,
+            persistence: false,
             debug: 0,
-            flag:   0,
+            flags: 0,
         } ;
-        owc.make_flag() ;
+        owc.make_flags() ;
         owc
     }
         
     // make the owserver flag field based on configuration settings
-    fn make_flag( &mut self ) {
-        let mut flag = 0 ;
+    fn make_flags( &mut self ) {
+        let mut flags = 0 ;
         if ! self.bare {
-            flag |= OwClient::BUS_RET ;
+            flags |= OwClient::BUS_RET ;
         }
-        flag |= match self.temperature {
+        if self.persistence {
+            flags |= OwClient::PERSISTENCE ;
+        }
+        flags |= match self.temperature {
             Temperature::CELSIUS   => OwClient::TEMPERATURE_C,
             Temperature::FARENHEIT => OwClient::TEMPERATURE_F,
             Temperature::KELVIN    => OwClient::TEMPERATURE_K,
@@ -182,7 +187,7 @@ impl OwClient {
             Temperature::DEFAULT   => OwClient::TEMPERATURE_C,
         } ;
         
-        flag |= match self.pressure {
+        flags |= match self.pressure {
             Pressure::MBAR => OwClient::PRESSURE_MBAR,
             Pressure::MMHG => OwClient::PRESSURE_MMHG,
             Pressure::INHG => OwClient::PRESSURE_INHG,
@@ -192,7 +197,7 @@ impl OwClient {
             Pressure::DEFAULT => OwClient::PRESSURE_MBAR,
         };
         
-        flag |= match self.format {
+        flags |= match self.format {
             Format::FI => OwClient::FORMAT_FI,
             Format::FdI => OwClient::FORMAT_F_I,
             Format::FIC => OwClient::FORMAT_FIC,
@@ -201,23 +206,23 @@ impl OwClient {
             Format::FdIdC => OwClient::FORMAT_F_I_C,
             Format::DEFAULT => OwClient::FORMAT_F_I,
         } ;
-        self.flag = flag
-    }
-
-    fn new_nop(&self)-> OwMessageSend {
-        OwMessageSend {
-            version: OwMessageSend::SENDVERSION,
-            payload: 0,
-            mtype:   OwMessageSend::NOP,
-            flags:   self.flag,
-            size:    OwMessageSend::DEFAULTSIZE,
-            offset:  0,
-            content: [].to_vec(),
-        }
+        self.flags = flags
     }
     
+    /// ### persistence
+    ///
+    /// * Set the state of the persistence flag transmitted to owserver
+    /// * Default false
+    /// * Useful for more extended interaction with owserver
+    ///   * This is an optional efficiency setting
+    ///   * The full connection with owserver does not need to be re-established with every request
+    pub fn persistence( &mut self, state: bool ) {
+        self.persistence = state ;
+        self.make_flags() ;
+    }
+
     fn param1( &self, text: &str, mtype: u32 ) -> Result<OwMessageSend,OwError> {
-        let mut msg = self.new_nop() ;
+        let mut msg = OwMessageSend::new(self.flags) ;
         if self.debug > 1 {
             eprintln!( "Type {} with text {} being prepared for sending", OwMessageSend::message_name(mtype), text ) ;
         }
@@ -230,7 +235,7 @@ impl OwClient {
     }
     
     fn make_write( &self, text: &str, value: &[u8] ) -> Result<OwMessageSend,OwError> {
-        let mut msg = self.new_nop() ;
+        let mut msg = OwMessageSend::new(self.flags) ;
         msg.mtype = OwMessageSend::WRITE ;
         if ! msg.add_path( text ) {
             return Err(OwError::new("Could not add path to sending message"));
@@ -582,6 +587,18 @@ impl OwMessageSend {
     const GET:         u32 = 8 ;
     const DIRALLSLASH: u32 = 9 ;
     const GETSLASH:    u32 = 10 ;
+
+    fn new(flag: u32)-> OwMessageSend {
+        OwMessageSend {
+            version: OwMessageSend::SENDVERSION,
+            payload: 0,
+            mtype:   OwMessageSend::NOP,
+            flags:   flag,
+            size:    OwMessageSend::DEFAULTSIZE,
+            offset:  0,
+            content: [].to_vec(),
+        }
+    }
 
     fn message_name( mtype: u32 ) -> &'static str {
         match mtype {

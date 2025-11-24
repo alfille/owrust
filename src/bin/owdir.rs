@@ -80,42 +80,42 @@
 use owrust::parse_args ;
 
 fn main() {
-	let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new() ; // create structure for owserver communication
 
-	// configure and get paths
-	match parse_args::command_line( &mut owserver ) {
-		Ok( paths ) => {
-			if paths.is_empty() {
-				// No path -- assume root
-				from_path( &owserver, "/".to_string() ) ;
-			} else {
-				// for each path in command line
-				for path in paths.into_iter() {
-					from_path( &owserver, path ) ;
-				}
-			}
-		},
-		Err(e) => {
-			eprintln!("owdir trouble {}",e);
-		}
-	}
+    // configure and get paths
+    match parse_args::command_line( &mut owserver ) {
+        Ok( paths ) => {
+            if paths.is_empty() {
+                // No path -- assume root
+                from_path( &owserver, "/".to_string() ) ;
+            } else {
+                // for each path in command line
+                for path in paths.into_iter() {
+                    from_path( &owserver, path ) ;
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("owdir trouble {}",e);
+        }
+    }
 }
 
 // print 1-wire directory contents
 fn from_path( owserver: &owrust::OwClient, path: String ) {
-	match owserver.dirall(&path) {
-		Ok(files) => {
-			match owserver.show_text(files) {
-				Ok(t) => {
-					println!("{}",t);
-				},
-				Err(e) => {
-					eprintln!("Trouble displaying directory {}",e);
-				}
-			} ;
-		},
-		Err(e) => {
-			eprintln!("Trouble with path {} Error {}",path,e);
-		}
-	}
-}	
+    match owserver.dirall(&path) {
+        Ok(files) => {
+            match owserver.show_text(files) {
+                Ok(t) => {
+                    println!("{}",t);
+                },
+                Err(e) => {
+                    eprintln!("Trouble displaying directory {}",e);
+                }
+            } ;
+        },
+        Err(e) => {
+            eprintln!("Trouble with path {} Error {}",path,e);
+        }
+    }
+}   

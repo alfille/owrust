@@ -63,35 +63,35 @@
 use owrust::parse_args ;
 
 fn main() {
-	let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new() ; // create structure for owserver communication
 
-	// configure and get paths
-	match parse_args::command_line( &mut owserver ) {
-		Ok( paths ) => {
-			if paths.is_empty() {
-				// No path
-				eprintln!( "Not enough arguments" ) ;
-			} else if ! paths.len().is_multiple_of(2) {
-				eprintln!("Path and value not paired") ;
-			} else {
-				// for each path/value pair in command line
-				for chunk in paths.chunks(2) {
-					from_path( &owserver, &chunk[0], &chunk[1] ) ;
-				}
-			}
-		}
-		Err(e) => {
-			eprintln!("owread trouble {}",e);
-		},
-	}
+    // configure and get paths
+    match parse_args::command_line( &mut owserver ) {
+        Ok( paths ) => {
+            if paths.is_empty() {
+                // No path
+                eprintln!( "Not enough arguments" ) ;
+            } else if ! paths.len().is_multiple_of(2) {
+                eprintln!("Path and value not paired") ;
+            } else {
+                // for each path/value pair in command line
+                for chunk in paths.chunks(2) {
+                    from_path( &owserver, &chunk[0], &chunk[1] ) ;
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("owread trouble {}",e);
+        },
+    }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
 fn from_path( owserver: &owrust::OwClient, path: &String, value: &String ) {
-	match owserver.write( path, value.as_bytes() ) {
-		Ok(_) => (),
-		Err(e) => {
-			eprintln!("Trouble with write -- path {} value {} Error {}",path, value, e);
-		},
-	}
-}	
+    match owserver.write( path, value.as_bytes() ) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("Trouble with write -- path {} value {} Error {}",path, value, e);
+        },
+    }
+}   

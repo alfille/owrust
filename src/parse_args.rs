@@ -246,7 +246,7 @@ Read a virtual 1-wire directory from owserver.
         eprintln!("{} path entries",result.len());
     }
     
-    owserver.make_flag() ;
+    owserver.make_flags() ;
     Ok(result)
 }
 
@@ -302,7 +302,7 @@ mod tests {
                 let args: Vec<OsString> = vec![ OsString::from(&t)];
                 let mut owserver = crate::new() ;
                 let _ = vector_line( &mut owserver, args ) ;
-                owserver.make_flag() ;
+                owserver.make_flags() ;
                 let result = owserver.flag & ts.1 ;
                 assert_eq!(result, ts.1);
             }

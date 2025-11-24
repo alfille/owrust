@@ -68,40 +68,40 @@
 use owrust::parse_args ;
 
 fn main() {
-	let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new() ; // create structure for owserver communication
 
-	// configure and get paths
-	match parse_args::command_line( &mut owserver ) {
-		
-		Ok( paths ) => {
-			if paths.is_empty() {
-				// No path -- assume root
-				from_path( &owserver, "/".to_string() ) ;
-			} else {
-				// for each pathon command line
-				for path in paths.into_iter() {
-					from_path( &owserver, path ) ;
-				}
-			}
-		}
-		Err(e) => {
-			eprintln!("owpresent trouble {}",e);
-		},
-	}
+    // configure and get paths
+    match parse_args::command_line( &mut owserver ) {
+        
+        Ok( paths ) => {
+            if paths.is_empty() {
+                // No path -- assume root
+                from_path( &owserver, "/".to_string() ) ;
+            } else {
+                // for each pathon command line
+                for path in paths.into_iter() {
+                    from_path( &owserver, path ) ;
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("owpresent trouble {}",e);
+        },
+    }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
 fn from_path( owserver: &owrust::OwClient, path: String ) {
-	match owserver.present(&path) {
-		Ok(values) => {
-			if values {
-				println!("1");
-			} else {
-				println!("0");
-			}
-		}
-		Err(e) => {
-			eprintln!("Trouble with path {} Error {}",path,e);
-		}
-	}
-}	
+    match owserver.present(&path) {
+        Ok(values) => {
+            if values {
+                println!("1");
+            } else {
+                println!("0");
+            }
+        }
+        Err(e) => {
+            eprintln!("Trouble with path {} Error {}",path,e);
+        }
+    }
+}   
