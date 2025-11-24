@@ -398,7 +398,7 @@ impl OwClient {
         }
     }
     
-    fn get_value( &self, path: &str, f: fn(&OwClient, &str)->Result<OwMessageSend,OwError>) -> OwEResult< Vec<u8>> {
+    fn get_value( &self, path: &str, f: fn(&OwClient, &str)->OeEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
         let msg = f( self, path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         if rcv.payload > 0 {
