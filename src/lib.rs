@@ -227,19 +227,14 @@ impl OwClient {
             eprintln!( "Type {} with text {} being prepared for sending", OwMessageSend::message_name(mtype), text ) ;
         }
         msg.mtype = mtype ;
-        if msg.add_path( text ) {
-            Ok(msg)
-        } else {
-            Err(OwError::new("Could not add path to sending message"))
-        }
+        msg.add_path( text ) ? ;
+		Ok(msg)
     }
     
     fn make_write( &self, text: &str, value: &[u8] ) -> OwEResult<OwMessageSend> {
         let mut msg = OwMessageSend::new(self.flags) ;
         msg.mtype = OwMessageSend::WRITE ;
-        if ! msg.add_path( text ) {
-            return Err(OwError::new("Could not add path to sending message"));
-        }
+        msg.add_path( text ) ? ;
         msg.add_data( value ) ;
         Ok(msg)
     }
@@ -287,12 +282,8 @@ impl OwClient {
     
     fn set_timeout( &self, stream: &TcpStream ) -> OwEResult<()> {
         // Set timeout
-        match stream.set_read_timeout( Some(Duration::from_secs(5))) {
-            Ok(_s)=>Ok(()),
-            Err(e) => Err( OwError::new(
-                &format!("Trouble setting timeout: {:?}",e)
-                )),
-        }
+        stream.set_read_timeout( Some(Duration::from_secs(5))) ? ;
+        Ok(())
     }
     
     // Loop through getting packets until payload empty
@@ -336,21 +327,9 @@ impl OwClient {
         if self.debug > 1 {
             eprintln!("about to connect");
         }
-        let mut stream = match TcpStream::connect( &self.owserver ) {
-            Ok(s)=> s,
-            Err(e) => {
-                return Err(OwError::new(
-                    &format!("Trouble connecting to owserver: {:?}",e)
-                    )) ;
-            },
-        };
-            
-        match stream.write_all( &msg ) {
-            Ok(_s) => Ok(stream),
-            Err(e) => Err(OwError::new(
-                &format!("Trouble sending to owserver: {:?}",e)
-                )),
-        }
+        let mut stream = TcpStream::connect( &self.owserver ) ? ;
+		stream.write_all( &msg ) ? ;
+        Ok(stream)
     }
 
     fn get_packet( &self, mut stream: &TcpStream ) -> OwEResult<OwMessageReceive> {
@@ -360,14 +339,7 @@ impl OwClient {
         let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
         
         loop {
-            match stream.read_exact( &mut buffer ) {
-                Ok(_s)=>(),
-                Err(e) => {
-                    return Err(OwError::new(
-                        &format!("Trouble receiving header: {:?}",e)
-                        ));
-                  },
-            };
+            stream.read_exact( &mut buffer ) ? ;
             let mut rcv = OwMessageReceive::new(buffer);
             
             if self.debug > 0 {
@@ -382,17 +354,11 @@ impl OwClient {
                 continue ;
             }
             if rcv.payload > 0 {
+				// create Vec with just the right size (based on payload)
                 rcv.content = Vec::with_capacity(rcv.payload as usize) ;
                 rcv.content.resize(rcv.payload as usize,0);
                 
-                match stream.read_exact(&mut rcv.content ) {
-                    Ok(_s)=>(),
-                    Err(e) => {
-                        return Err(OwError::new(
-                        &format!("Trouble receiving payload: {:?}",e)
-                        ));
-                    },
-                } ;
+                stream.read_exact(&mut rcv.content ) ? ;
             }
             return Ok(rcv) ;
         }
@@ -402,6 +368,18 @@ impl OwClient {
         let msg = f( self, path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         if rcv.payload > 0 {
+            let v: Vec<u8> = rcv.content ;
+            return Ok( v ) ;
+        }
+        Ok(Vec::new())
+    }
+    fn get_bare_value( &self, path: &str, f: fn(&OwClient, &str)->OwEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
+        let msg = f( self, path ) ? ;
+        let mut rcv = self.send_get_single( msg ) ? ;
+        if rcv.payload > 0 {
+			if self.bare {
+				rcv.bare_filter() ? ;
+			}
             let v: Vec<u8> = rcv.content ;
             return Ok( v ) ;
         }
@@ -429,8 +407,8 @@ impl OwClient {
         if rcv.ret == 0 {
             Ok( () )
         } else {
-            Err(OwError::new(
-                &format!("Return code from owserver is error {}",rcv.ret)
+            Err(OwError::Output(
+                format!("Return code from owserver is error {}",rcv.ret)
                 ))
         }
     }
@@ -444,8 +422,11 @@ impl OwClient {
     /// * result can be displayed with **show_text**
     pub fn dir( &self, path: &str ) -> OwEResult<Vec<u8>> {
         let msg = self.make_dir( path ) ? ;
-        let rcv = self.send_get_many( msg ) ? ;
+        let mut rcv = self.send_get_many( msg ) ? ;
         if rcv.payload > 0 {
+			if self.bare {
+				rcv.bare_filter() ? ;
+			}
             let v: Vec<u8> = rcv.content ;
             return Ok( v ) ;
         }
@@ -473,7 +454,7 @@ impl OwClient {
         let rcv = self.send_get_single( msg ) ? ;
         let ret = rcv.ret;
         if ret < 0 {
-            Err(OwError::new(&format!("Return code from owserver is error {}",rcv.ret)))
+            Err(OwError::Output(format!("Return code from owserver is error {}",rcv.ret)))
         } else {
             Ok(ret)
         }
@@ -487,8 +468,8 @@ impl OwClient {
     /// * result can be displayed with **show_text**
     pub fn dirall( &self, path: &str ) -> OwEResult<Vec<u8>> {
         match self.slash {
-            true => self.get_value(path,OwClient::make_dirallslash),
-            _ => self.get_value(path,OwClient::make_dirall),
+            true => self.get_bare_value(path,OwClient::make_dirallslash),
+            _ => self.get_bare_value(path,OwClient::make_dirall),
         }
     }
     /// ### get
@@ -502,8 +483,8 @@ impl OwClient {
     /// * result can be displayed with **show_result**
     pub fn get( &self, path: &str ) -> OwEResult<Vec<u8>> {
         match self.slash {
-            true => self.get_value( path, OwClient::make_getslash),
-            _ => self.get_value( path, OwClient::make_get),
+            true => self.get_bare_value( path, OwClient::make_getslash),
+            _ => self.get_bare_value( path, OwClient::make_get),
         }
     }
 
@@ -524,12 +505,8 @@ impl OwClient {
     /// * ignores the hex setting
     /// * good for **dir**
     pub fn show_text( &self, v: Vec<u8> ) -> OwEResult<String> {
-        match str::from_utf8(&v) {
-            Ok(s) => Ok(s.to_string()) ,
-            Err(e) => Err(OwError::new(
-                &format!("Unprintable characters {}",e)
-                )),
-        }
+        let s = str::from_utf8(&v) ? ;
+        Ok(s.to_string())
     }
     
     /// ### input_to_write
@@ -542,15 +519,15 @@ impl OwClient {
     }
     // hex
     if ! s.len().is_multiple_of(2) {
-        return Err(OwError::new("Hex string should be an even length")) ;
+        return Err(OwError::Numeric("Hex string should be an even length".into())) ;
     }
     (0..s.len())
         .step_by(2)
         .map(|i| {
             match u8::from_str_radix(&s[i..i+2], 16) {
                 Ok(byte) => Ok(byte),
-                Err(e) => Err(OwError::new(
-                    &format!("Bad hex characters {}",e)
+                Err(e) => Err(OwError::Numeric(
+                    format!("Bad hex characters {}",e)
                     )
                 ),
             }}
@@ -617,14 +594,12 @@ impl OwMessageSend {
         }
     }
 
-    fn add_path( &mut self, path: &str ) -> bool {
+    fn add_path( &mut self, path: &str ) -> OwEResult<()> {
         // Add nul-terminated path (and includes null in payload size)
-        self.content = match ffi::CString::new(path) {
-            Ok(s)=>s.into_bytes_with_nul(),
-            Err(_e)=>return false,
-        } ;
+        let s = ffi::CString::new(path) ? ;
+        self.content = s.as_bytes().to_vec() ;
         self.payload = self.content.len() as u32 ;
-        true
+        Ok(())
     }
     
     fn add_data( &mut self, data: &[u8] ) {
@@ -662,21 +637,15 @@ impl OwMessageReceive {
     }
 
     fn bare_filter( &mut self ) -> OwEResult<()> {
-        match String::from_utf8(self.content.clone()) {
-            Ok(s) => {
-                self.content = s.split(',')
-                .filter( |s| ! OwMessageReceive::is_bad_bare(s) )
-                .collect::<Vec<&str>>()
-                .join(",")
-                .as_bytes()
-                .to_vec();
-                self.payload = self.content.len() as u32 ;
-                Ok(())
-            },
-            Err(e) => Err(OwError::new(
-                &format!("Bad characters in directory listing {}",e)
-                )),
-        }
+		let s = String::from_utf8(self.content.clone()) ? ;
+		self.content = s.split(',')
+			.filter( |s| ! OwMessageReceive::is_bad_bare(s) )
+			.collect::<Vec<&str>>()
+			.join(",")
+			.as_bytes()
+			.to_vec();
+		self.payload = self.content.len() as u32 ;
+		Ok(())
     }
 
     // filter devices properties that are less interesting
@@ -715,16 +684,11 @@ pub enum OwError {
 	Input(String),
 	Output(String),
     Io(std::io::Error),
+    Args(pico_args::Error),
+    Numeric(String),
+    Text(String),
 }
 
-impl OwError{
-    /// Create the error struct with the explanation
-    pub fn new(msg: &str) -> OwError {
-        OwError {
-            details: msg.to_string(),
-        }
-    }
-}
 impl fmt::Display for OwError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
@@ -732,6 +696,9 @@ impl fmt::Display for OwError {
 			OwError::Input(e) => write!(f,"Input error: {}",e),
 			OwError::Output(e) => write!(f,"Output error: {}",e),
 			OwError::Io(e) => write!(f,"IO error: {}",e),
+			OwError::Args(e) => write!(f,"Args error: {}",e),
+			OwError::Text(e) => write!(f,"Text conversion error: {}",e),
+			OwError::Numeric(e) => write!(f,"Non-numeric characters: {}",e),
 		}
     }
 }
@@ -739,6 +706,7 @@ impl std::error::Error for OwError {
     fn source( &self ) -> Option<&(dyn std::error::Error + 'static)> {
 		match self {
 			OwError::Io(e) => Some(e),
+			OwError::Args(e) => Some(e),
 			_ => None,
 		}
     }
@@ -747,6 +715,26 @@ impl std::error::Error for OwError {
 impl From<std::io::Error> for OwError {
 	fn from(e: std::io::Error) -> Self {
 		OwError::Io(e)
+	}
+}
+impl From<pico_args::Error> for OwError {
+	fn from(e: pico_args::Error) -> Self {
+		OwError::Args(e)
+	}
+}
+impl From<std::str::Utf8Error> for OwError {
+	fn from(_e: std::str::Utf8Error) -> Self {
+		OwError::Text("Utf8 Error".into())
+	}
+}
+impl From<std::string::FromUtf8Error> for OwError {
+	fn from(_e: std::string::FromUtf8Error) -> Self {
+		OwError::Text("FromUTF8Error".into())
+	}
+}
+impl From<std::ffi::NulError> for OwError {
+	fn from(_e: std::ffi::NulError) -> Self {
+		OwError::Text("Nul Error".into())
 	}
 }
 
