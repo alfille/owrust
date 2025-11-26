@@ -756,13 +756,13 @@ mod tests {
         // Regular
         owc.hex = false ;
         let v :Vec<u8> = vec!(72,101,108,108,111);
-        let x = owc.show_result(v) ;
+        let x = owc.show_result(v).unwrap() ;
         assert_eq!(x,"Hello");
 
         // Hex
         owc.hex = true ;
         let v :Vec<u8> = vec!(72,101,108,108,111);
-        let x = owc.show_result(v) ;
+        let x = owc.show_result(v).unwrap() ;
         assert_eq!(x,"48 65 6C 6C 6F");
     }
 }

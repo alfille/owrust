@@ -265,7 +265,7 @@ mod tests {
                 let mut owserver = crate::new() ;
                 let _ = vector_line( &mut owserver, args ) ;
                 owserver.make_flags() ;
-                let result = owserver.flag & ts.1 ;
+                let result = owserver.flags & ts.1 ;
                 assert_eq!(result, ts.1);
             }
         }
