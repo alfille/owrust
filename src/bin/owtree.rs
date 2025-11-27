@@ -83,23 +83,22 @@ use owrust::parse_args ;
 fn main() {
     let mut owserver = owrust::new() ; // create structure for owserver communication
 
+	let paths = match parse_args::command_line( &mut owserver ) {
+		Ok( paths ) => paths,
+		Err(_e) => vec!("/".to_string()),
+	} ;
+	
     // configure and get paths
-    match parse_args::command_line( &mut owserver ) {
-        Ok( paths ) => {
-            if paths.is_empty() {
-                // No path -- assume root
-                from_path( &owserver, "/".to_string() ) ;
-            } else {
-                // for each path in command line
-                for path in paths.into_iter() {
-                    from_path( &owserver, path ) ;
-                }
-            }
-        },
-        Err(e) => {
-            eprintln!("owdir trouble {}",e);
-        }
-    }
+    match parse_args::temporary_client( &owserver, vec!("--dir","--persist")) {
+		Ok( newserver ) => {
+			for path in paths.into_iter() {
+				from_path( &newserver, path ) ;
+			}
+		}
+		Err(_e) => {
+			eprintln!("Could not set persistence and directory signal");
+		},
+	}
 }
 
 // Split path into parts
@@ -114,7 +113,7 @@ fn parse_path( fullpath: String ) -> Vec<String> {
 
 fn parse_diff( first: Vec<String>, second: Vec<String> ) -> usize {
 	let len = std::cmp::min( first.len(), second.len() ) ;
-	for i in (0..len) {
+	for i in 0..len {
 		if first[i] != second[i] {
 			return i;
 		}
@@ -122,25 +121,45 @@ fn parse_diff( first: Vec<String>, second: Vec<String> ) -> usize {
 	len
 }
 
+const END:  &str = "└── ";
+const RGT:  &str = "│   ";
+const NEXT: &str = "├── ";
+const TAB:  &str = "    ";
 
 // print 1-wire directory contents
 fn from_path( owserver: &owrust::OwClient, path: String ) {
     match owserver.dirall(&path) {
         Ok(files) => {
-            match owserver.show_text(files) {
-                Ok(t) => {
-                    println!("{}",t);
-                },
-                Err(e) => {
-                    eprintln!("Trouble displaying directory {}",e);
-                }
-            } ;
+			let filelist = match String::from_utf8( files ) {
+				Ok(f) => f,
+				Err(_e) => {
+					eprintln!("Bad characters in direory listing");
+					return ;
+				},
+			};
+			if path == "/".to_string() {
+				Tree0( path, filelist );
+			} else {
+				Tree0( path.trim_matches('/').to_string(), filelist ) ;
+			}
         },
         Err(e) => {
             eprintln!("Trouble with path {} Error {}",path,e);
         }
     }
 }   
+
+fn Tree0( root: String, dirlist: String ) {
+	// print initial path
+	println!("{}",root) ;
+	let root_v = parse_path(root) ;
+	let root_depth = root_v.len() ;
+	let mut last = root_v ;
+	
+	for file in dirlist.split(",") {
+		
+	}
+}
 
 #[cfg(test)]
 mod tests {
@@ -157,8 +176,8 @@ mod tests {
     fn p_path1() {
         let path = "/".to_string();
         let v = parse_path( path ) ;
-        let q = s2v(vec![]);
-        assert!( q.is_empty()) ;
+        let q = s2v(vec![""]);
+        assert_eq!( v,q) ;
     }
     #[test]
     fn p_path2() {

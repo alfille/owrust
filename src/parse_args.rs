@@ -34,6 +34,12 @@ Display
   --size   Max size (in bytes) of returned field (truncate if needed)
   --offset Position in field to start returned value (for long memory contents)
   --bare   Show only 1-wire devices, not virtual directories
+             also suppress convenience properties like `id`, `crc`, etc.
+  --persist Keep the connection to owserver live rather than reestablishing
+             for every query. Improves performance. 
+
+Pressure
+	--mbar --mmhg --inhg --atm --pa --psi
   
 OTHER
   -h, --help  This help message
@@ -58,13 +64,12 @@ OTHER
 pub fn command_line( owserver: &mut crate::OwClient ) -> OwEResult<Vec<String>> {
     // normal path -- from environment
     let args = Arguments::from_env();
-    let v = parser( owserver, args ) ? ;
-    Ok(v)
+    Ok( parser( owserver, args ) ? )
 }
 
 /// ### vector_line
 /// * Argument OwClient structure (mutable)
-/// * Argument `Vec<OsString>` insted of command line
+/// * Argument `Vec<String>` instead of command line
 /// * Uses flags to set OwClient configuration
 /// * Computes owserver protocol flag field in OwClient
 /// * Returns all non-flags on command line (paths and values as required)
@@ -74,18 +79,31 @@ pub fn command_line( owserver: &mut crate::OwClient ) -> OwEResult<Vec<String>> 
 /// use pico_args::Arguments;
 /// use owrust::parse_args::vector_line ;
 /// let mut owserver = owrust::new() ; // new OwClient structure
-/// let args: Vec<OsString> = vec!(
-///     "-C".into(),
-///     "--bare".into(),
-///     "/bus.0".into()
+/// let args: Vec<&str> = vec!(
+///     "-C",
+///     "--bare",
+///     "/bus.0"
 ///     );
 /// let paths = vector_line( &mut owserver, args ).expect("Bad configuration");
 /// ```
-pub fn vector_line( owserver: &mut crate::OwClient, raw_args: Vec<OsString> ) -> OwEResult<Vec<String>> {
+pub fn vector_line( owserver: &mut crate::OwClient, args: Vec<&str> ) -> OwEResult<Vec<String>> {
     // normal path -- from environment
-    let args = Arguments::from_vec(raw_args);
-    let v = parser( owserver, args ) ? ;
-    Ok(v)
+    // convert Vec<String> to Vec<OsString>
+    let os_args: Vec<OsString> = args
+		.iter()
+		.map(OsString::from)
+		.collect() ;
+    Ok( parser( owserver, Arguments::from_vec(os_args) ) ? )
+}
+
+/// ### temporary_client
+/// returns a clone of OwClient with `args` added
+/// 
+/// Useful for temporarily amending a connection using different flags
+pub fn temporary_client( owserver: &crate::OwClient, args: Vec<&str> ) -> OwEResult<crate::OwClient> {
+	let mut clone = owserver.clone() ;
+	vector_line( &mut clone, args ) ? ;
+	Ok(clone)
 }
 
 fn progname() -> String {
@@ -178,6 +196,9 @@ Read a virtual 1-wire directory from owserver.
     let d = args.opt_value_from_fn(["-f","--format"],parse_device) ? ;
     owserver.format = d.unwrap_or(crate::Format::DEFAULT) ;
     
+	// Persist
+    owserver.persistence = args.contains("--persist") ;
+
     // Display
     owserver.hex = args.contains("--hex") ;
     owserver.slash = args.contains("--dir") ;
@@ -252,7 +273,7 @@ mod tests {
     }
     
     #[test]
-    fn test_temperature() {
+    fn test_short_long() {
         for ts in [
             ("Celsius",  crate::OwClient::TEMPERATURE_C,),
             ("Kelvin",   crate::OwClient::TEMPERATURE_K,),
@@ -261,11 +282,53 @@ mod tests {
             ] {
             let test = ts.0.to_string() ;        
             for t in [short(&test), long(&test)] {
-                let args: Vec<OsString> = vec![ OsString::from(&t)];
+                let args: Vec<&str> = vec![&t];
                 let mut owserver = crate::new() ;
                 let _ = vector_line( &mut owserver, args ) ;
                 owserver.make_flags() ;
                 let result = owserver.flags & ts.1 ;
+                assert_eq!(result, ts.1);
+            }
+        }
+    }
+    #[test]
+    fn long_opt() {
+        for ts in [
+            ("mbar", crate::OwClient::PRESSURE_MBAR,),
+            ("mmhg", crate::OwClient::PRESSURE_MMHG,),
+            ("inhg", crate::OwClient::PRESSURE_INHG,),
+            ("atm",  crate::OwClient::PRESSURE_ATM,),
+            ("pa",   crate::OwClient::PRESSURE_PA,),
+            ("psi",  crate::OwClient::PRESSURE_PSI,),
+            
+            ("persist", crate::OwClient::PERSISTENCE,),            
+            ] {
+            let test = ts.0.to_string() ;        
+            for t in [long(&test)] {
+                let args: Vec<&str> = vec![&t];
+                let mut owserver = crate::new() ;
+                let _ = vector_line( &mut owserver, args ) ;
+                owserver.make_flags() ;
+                let result = owserver.flags & ts.1 ;
+                assert_eq!(result, ts.1);
+            }
+        }
+    }
+    #[test]
+    fn clone_temperature() {
+        for ts in [
+            ("Celsius",  crate::OwClient::TEMPERATURE_C,),
+            ("Kelvin",   crate::OwClient::TEMPERATURE_K,),
+            ("Farenheit",crate::OwClient::TEMPERATURE_F,),
+            ("Rankine",  crate::OwClient::TEMPERATURE_R,),
+            ] {
+            let test = ts.0.to_string() ;        
+            for t in [short(&test), long(&test)] {
+                let args: Vec<&str> = vec![ &t ];
+                let owserver = crate::new() ;
+                let mut owserver2 = temporary_client( &owserver, args ).unwrap() ;
+                owserver2.make_flags() ;
+                let result = owserver2.flags & ts.1 ;
                 assert_eq!(result, ts.1);
             }
         }

@@ -52,7 +52,7 @@ pub fn new() -> OwClient {
     OwClient::new()
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 /// ### Temperature scale
 /// sent to owserver in the flag parameter since only the original 1-wire 
 /// program in the chain knows the type of value being sought
@@ -64,7 +64,7 @@ pub enum Temperature {
     DEFAULT,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 /// ### Pressure scale
 /// sent to owserver in the flag parameter since only the original 1-wire 
 /// program in the chain knows the type of value being sought
@@ -78,7 +78,7 @@ pub enum Pressure {
     DEFAULT,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 /// ### 1-wire ID format
 /// has components:
 ///  F family code (1 byte)
@@ -94,7 +94,7 @@ pub enum Format {
     DEFAULT,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 /// ### OwClient
 /// structure that manages the connection to owserver
 /// * Stores configuration settings
@@ -209,18 +209,6 @@ impl OwClient {
         self.flags = flags
     }
     
-    /// ### persistence
-    ///
-    /// * Set the state of the persistence flag transmitted to owserver
-    /// * Default false
-    /// * Useful for more extended interaction with owserver
-    ///   * This is an optional efficiency setting
-    ///   * The full connection with owserver does not need to be re-established with every request
-    pub fn persistence( &mut self, state: bool ) {
-        self.persistence = state ;
-        self.make_flags() ;
-    }
-
     fn param1( &self, text: &str, mtype: u32 ) -> OwEResult<OwMessageSend> {
         let mut msg = OwMessageSend::new(self.flags) ;
         if self.debug > 1 {
