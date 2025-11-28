@@ -83,138 +83,151 @@ use owrust::parse_args ;
 fn main() {
     let mut owserver = owrust::new() ; // create structure for owserver communication
 
-	let paths = match parse_args::command_line( &mut owserver ) {
-		Ok( paths ) => paths,
-		Err(_e) => vec!("/".to_string()),
-	} ;
-	
     // configure and get paths
+    let paths = match parse_args::command_line( &mut owserver ) {
+        Ok( paths ) => {
+            if paths.is_empty() {
+                vec!("/".to_string())
+            } else {
+                paths
+            }
+        },
+        Err(_e) => vec!("/".to_string()),
+    } ;
+    
+    // add slash and persistence
     match parse_args::temporary_client( &owserver, vec!("--dir","--persist")) {
-		Ok( newserver ) => {
-			for path in paths.into_iter() {
-				from_path( &newserver, path ) ;
-			}
-		}
-		Err(_e) => {
-			eprintln!("Could not set persistence and directory signal");
-		},
-	}
+        Ok( new_server ) => {
+            for path in paths.into_iter() {
+                from_path( &new_server, path ) ;
+            }
+        },
+        Err(_e) => {
+            eprintln!("Could not set persistence and directory signal");
+        },
+    } ;
 }
 
-// Split path into parts
-// prune final "/"
-// prune initial "/"
-fn parse_path( fullpath: String ) -> Vec<String> {
-	fullpath.trim_matches('/')
-		.split('/')
-		.map( |s| s.to_string() )
-		.collect()
+fn from_path ( owserver: &owrust::OwClient, path: String ) {
+    let root = File::root(path) ;
+    root.print( owserver, &"".to_string(), true ) ;
 }
 
-fn parse_diff( first: Vec<String>, second: Vec<String> ) -> usize {
-	let len = std::cmp::min( first.len(), second.len() ) ;
-	for i in 0..len {
-		if first[i] != second[i] {
-			return i;
-		}
-	}
-	len
+#[derive(Debug,Clone)]
+struct Dir {
+    contents: Vec<File>,
+}
+impl Dir {
+    fn new( owserver: &owrust::OwClient, path: String ) -> Self {
+        let dir_u8 = match owserver.dirall( &path ) {
+            Ok(x) => x,
+            _ => {
+                eprintln!("Trouble getting directory of {}",&path ) ;
+                return Dir::null_dir() ;
+            },
+        };
+        let dirlist = match String::from_utf8(dir_u8) {
+            Ok(d) => d,
+            _ => {
+                eprintln!("Bad characters in directory of {}",&path ) ;
+                return Dir::null_dir() ;
+            },
+        };
+        // directory
+        Dir {
+            contents: dirlist
+                .split(',')
+                .map( |f| File::new( f.to_string() ) )
+                .collect(),
+        }
+    }
+    fn null_dir() -> Self {
+        Dir {
+            contents: vec!(),
+        }
+    }
+    fn print( &self, owserver: &owrust::OwClient, prefix: &String ) {
+        let len = self.contents.len() ;
+        let prefix_mid = format!("{}{}",prefix,RGT);
+        let prefix_end = format!("{}{}",prefix,TAB);
+        for (i,f) in self.contents.iter().enumerate() {
+            if i < len-1 {
+                f.print( owserver, &prefix_mid, false )
+            } else {
+                f.print( owserver, &prefix_end, true )
+            }
+        }
+    }
+} 
+
+#[derive(Debug,Clone)]
+struct File {
+    path: String,
+    name: String,
+    dir: bool,
+}
+impl File {
+    fn new( path: String ) -> Self {
+        let parts: Vec<String> = path
+            .split('/')
+            .map( String::from )
+            .collect() ;
+        let len = parts.len() ;
+        if len == 0 {
+            File {
+                path,
+                name: "No name".to_string(),
+                dir: false
+            }
+        } else if len==1 {
+            File {
+                path,
+                name: parts[0].clone(),
+                dir: false
+            }
+        } else if parts[len-1].is_empty() {
+            // directory since null last element
+            File {
+                path,
+                name: parts[len-2].clone(),
+                dir: true,
+            }
+        }
+        else {
+            // regular file
+            File {
+                path,
+                name: parts[len-1].clone(),
+                dir: false,
+            }
+        }
+    }
+    fn root ( path: String ) -> Self {
+        File {
+            path: path.clone(),
+            name: path.clone(),
+            dir: true,
+        }
+    }
+    fn print( &self, owserver: &owrust::OwClient, prefix: &String, last: bool ) {
+        // File
+        if last {
+            println!("{}{}{}",prefix,END,self.name);
+        } else {
+            println!("{}{}{}",prefix,NEXT,self.name);
+        }
+        if self.dir {
+            let prefix: String = match last {
+                true => format!("{}{}",prefix,TAB),
+                false => format!("{}{}",prefix,RGT),
+            } ;
+            let dir = Dir::new( owserver, self.path.clone() ) ;
+            dir.print(owserver, &prefix) ;
+        }
+    }
 }
 
 const END:  &str = "└── ";
 const RGT:  &str = "│   ";
 const NEXT: &str = "├── ";
 const TAB:  &str = "    ";
-
-// print 1-wire directory contents
-fn from_path( owserver: &owrust::OwClient, path: String ) {
-    match owserver.dirall(&path) {
-        Ok(files) => {
-			let filelist = match String::from_utf8( files ) {
-				Ok(f) => f,
-				Err(_e) => {
-					eprintln!("Bad characters in direory listing");
-					return ;
-				},
-			};
-			if path == "/".to_string() {
-				Tree0( path, filelist );
-			} else {
-				Tree0( path.trim_matches('/').to_string(), filelist ) ;
-			}
-        },
-        Err(e) => {
-            eprintln!("Trouble with path {} Error {}",path,e);
-        }
-    }
-}   
-
-fn Tree0( root: String, dirlist: String ) {
-	// print initial path
-	println!("{}",root) ;
-	let root_v = parse_path(root) ;
-	let root_depth = root_v.len() ;
-	let mut last = root_v ;
-	
-	for file in dirlist.split(",") {
-		
-	}
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    fn s2v( v: Vec<&str> ) -> Vec<String> {
-		v
-		.iter()
-		.map( |s| s.to_string() )
-		.collect()
-	}
-
-    #[test]
-    fn p_path1() {
-        let path = "/".to_string();
-        let v = parse_path( path ) ;
-        let q = s2v(vec![""]);
-        assert_eq!( v,q) ;
-    }
-    #[test]
-    fn p_path2() {
-        let path = "/10.1232/temperature" .to_string() ;
-        let v = parse_path( path ) ;
-        let q = s2v(vec!["10.1232","temperature"]);
-        assert_eq!( v,q) ;
-    }
-    #[test]
-    fn p_path3() {
-        let path = "/10.1232/temperature/" .to_string() ;
-        let v = parse_path( path ) ;
-        let q = s2v(vec!["10.1232","temperature"]);
-        assert_eq!( v,q) ;
-    }
-    #[test]
-    fn p_diff1() {
-        let f = "/10.1232/temperature/" .to_string() ;
-        let s = "/10.1232/temperture/" .to_string() ;
-        let pf = parse_path(f) ;
-        let ps = parse_path(s) ;
-        assert_eq!( parse_diff(pf,ps), 1 ) ;
-    }
-    #[test]
-    fn p_diff2() {
-        let f = "/10.1232/temperature/" .to_string() ;
-        let s = "/10.1232/temperature/wertyw" .to_string() ;
-        let pf = parse_path(f) ;
-        let ps = parse_path(s) ;
-        assert_eq!( parse_diff(pf,ps), 2 ) ;
-    }
-    #[test]
-    fn p_diff3() {
-        let f = "/10.1232/temperature/" .to_string() ;
-        let s = "/10.1232/temperature" .to_string() ;
-        let pf = parse_path(f) ;
-        let ps = parse_path(s) ;
-        assert_eq!( parse_diff(pf,ps), 2 ) ;
-    }
-}

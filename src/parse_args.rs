@@ -39,7 +39,7 @@ Display
              for every query. Improves performance. 
 
 Pressure
-	--mbar --mmhg --inhg --atm --pa --psi
+    --mbar --mmhg --inhg --atm --pa --psi
   
 OTHER
   -h, --help  This help message
@@ -64,7 +64,7 @@ OTHER
 pub fn command_line( owserver: &mut crate::OwClient ) -> OwEResult<Vec<String>> {
     // normal path -- from environment
     let args = Arguments::from_env();
-    Ok( parser( owserver, args ) ? )
+    parser( owserver, args )
 }
 
 /// ### vector_line
@@ -90,10 +90,10 @@ pub fn vector_line( owserver: &mut crate::OwClient, args: Vec<&str> ) -> OwEResu
     // normal path -- from environment
     // convert Vec<String> to Vec<OsString>
     let os_args: Vec<OsString> = args
-		.iter()
-		.map(OsString::from)
-		.collect() ;
-    Ok( parser( owserver, Arguments::from_vec(os_args) ) ? )
+        .iter()
+        .map(OsString::from)
+        .collect() ;
+    parser( owserver, Arguments::from_vec(os_args) )
 }
 
 /// ### temporary_client
@@ -101,9 +101,9 @@ pub fn vector_line( owserver: &mut crate::OwClient, args: Vec<&str> ) -> OwEResu
 /// 
 /// Useful for temporarily amending a connection using different flags
 pub fn temporary_client( owserver: &crate::OwClient, args: Vec<&str> ) -> OwEResult<crate::OwClient> {
-	let mut clone = owserver.clone() ;
-	vector_line( &mut clone, args ) ? ;
-	Ok(clone)
+    let mut clone = owserver.clone() ;
+    vector_line( &mut clone, args ) ? ;
+    Ok(clone)
 }
 
 fn progname() -> String {
@@ -196,7 +196,7 @@ Read a virtual 1-wire directory from owserver.
     let d = args.opt_value_from_fn(["-f","--format"],parse_device) ? ;
     owserver.format = d.unwrap_or(crate::Format::DEFAULT) ;
     
-	// Persist
+    // Persist
     owserver.persistence = args.contains("--persist") ;
 
     // Display

@@ -216,7 +216,7 @@ impl OwClient {
         }
         msg.mtype = mtype ;
         msg.add_path( text ) ? ;
-		Ok(msg)
+        Ok(msg)
     }
     
     fn make_write( &self, text: &str, value: &[u8] ) -> OwEResult<OwMessageSend> {
@@ -316,7 +316,7 @@ impl OwClient {
             eprintln!("about to connect");
         }
         let mut stream = TcpStream::connect( &self.owserver ) ? ;
-		stream.write_all( &msg ) ? ;
+        stream.write_all( &msg ) ? ;
         Ok(stream)
     }
 
@@ -342,7 +342,7 @@ impl OwClient {
                 continue ;
             }
             if rcv.payload > 0 {
-				// create Vec with just the right size (based on payload)
+                // create Vec with just the right size (based on payload)
                 rcv.content = Vec::with_capacity(rcv.payload as usize) ;
                 rcv.content.resize(rcv.payload as usize,0);
                 
@@ -365,9 +365,9 @@ impl OwClient {
         let msg = f( self, path ) ? ;
         let mut rcv = self.send_get_single( msg ) ? ;
         if rcv.payload > 0 {
-			if self.bare {
-				rcv.bare_filter() ? ;
-			}
+            if self.bare {
+                rcv.bare_filter() ? ;
+            }
             let v: Vec<u8> = rcv.content ;
             return Ok( v ) ;
         }
@@ -412,9 +412,9 @@ impl OwClient {
         let msg = self.make_dir( path ) ? ;
         let mut rcv = self.send_get_many( msg ) ? ;
         if rcv.payload > 0 {
-			if self.bare {
-				rcv.bare_filter() ? ;
-			}
+            if self.bare {
+                rcv.bare_filter() ? ;
+            }
             let v: Vec<u8> = rcv.content ;
             return Ok( v ) ;
         }
@@ -625,15 +625,15 @@ impl OwMessageReceive {
     }
 
     fn bare_filter( &mut self ) -> OwEResult<()> {
-		let s = String::from_utf8(self.content.clone()) ? ;
-		self.content = s.split(',')
-			.filter( |s| ! OwMessageReceive::is_bad_bare(s) )
-			.collect::<Vec<&str>>()
-			.join(",")
-			.as_bytes()
-			.to_vec();
-		self.payload = self.content.len() as u32 ;
-		Ok(())
+        let s = String::from_utf8(self.content.clone()) ? ;
+        self.content = s.split(',')
+            .filter( |s| ! OwMessageReceive::is_bad_bare(s) )
+            .collect::<Vec<&str>>()
+            .join(",")
+            .as_bytes()
+            .to_vec();
+        self.payload = self.content.len() as u32 ;
+        Ok(())
     }
 
     // filter devices properties that are less interesting
@@ -668,9 +668,9 @@ pub type OwEResult<T> = std::result::Result<T,OwError> ;
 ///
 /// details field is a String with error details
 pub enum OwError {
-	General(String),
-	Input(String),
-	Output(String),
+    General(String),
+    Input(String),
+    Output(String),
     Io(std::io::Error),
     Args(pico_args::Error),
     Numeric(String),
@@ -679,51 +679,51 @@ pub enum OwError {
 
 impl fmt::Display for OwError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			OwError::General(e) => write!(f,"An error: {}",e),
-			OwError::Input(e) => write!(f,"Input error: {}",e),
-			OwError::Output(e) => write!(f,"Output error: {}",e),
-			OwError::Io(e) => write!(f,"IO error: {}",e),
-			OwError::Args(e) => write!(f,"Args error: {}",e),
-			OwError::Text(e) => write!(f,"Text conversion error: {}",e),
-			OwError::Numeric(e) => write!(f,"Non-numeric characters: {}",e),
-		}
+        match self {
+            OwError::General(e) => write!(f,"An error: {}",e),
+            OwError::Input(e) => write!(f,"Input error: {}",e),
+            OwError::Output(e) => write!(f,"Output error: {}",e),
+            OwError::Io(e) => write!(f,"IO error: {}",e),
+            OwError::Args(e) => write!(f,"Args error: {}",e),
+            OwError::Text(e) => write!(f,"Text conversion error: {}",e),
+            OwError::Numeric(e) => write!(f,"Non-numeric characters: {}",e),
+        }
     }
 }
 impl std::error::Error for OwError {
     fn source( &self ) -> Option<&(dyn std::error::Error + 'static)> {
-		match self {
-			OwError::Io(e) => Some(e),
-			OwError::Args(e) => Some(e),
-			_ => None,
-		}
+        match self {
+            OwError::Io(e) => Some(e),
+            OwError::Args(e) => Some(e),
+            _ => None,
+        }
     }
 }
 
 impl From<std::io::Error> for OwError {
-	fn from(e: std::io::Error) -> Self {
-		OwError::Io(e)
-	}
+    fn from(e: std::io::Error) -> Self {
+        OwError::Io(e)
+    }
 }
 impl From<pico_args::Error> for OwError {
-	fn from(e: pico_args::Error) -> Self {
-		OwError::Args(e)
-	}
+    fn from(e: pico_args::Error) -> Self {
+        OwError::Args(e)
+    }
 }
 impl From<std::str::Utf8Error> for OwError {
-	fn from(_e: std::str::Utf8Error) -> Self {
-		OwError::Text("Utf8 Error".into())
-	}
+    fn from(_e: std::str::Utf8Error) -> Self {
+        OwError::Text("Utf8 Error".into())
+    }
 }
 impl From<std::string::FromUtf8Error> for OwError {
-	fn from(_e: std::string::FromUtf8Error) -> Self {
-		OwError::Text("FromUTF8Error".into())
-	}
+    fn from(_e: std::string::FromUtf8Error) -> Self {
+        OwError::Text("FromUTF8Error".into())
+    }
 }
 impl From<std::ffi::NulError> for OwError {
-	fn from(_e: std::ffi::NulError) -> Self {
-		OwError::Text("Nul Error".into())
-	}
+    fn from(_e: std::ffi::NulError) -> Self {
+        OwError::Text("Nul Error".into())
+    }
 }
 
 #[cfg(test)]
