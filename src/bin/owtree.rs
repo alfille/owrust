@@ -119,27 +119,18 @@ struct Dir {
 }
 impl Dir {
     fn new( owserver: &owrust::OwClient, path: String ) -> Self {
-        let dir_u8 = match owserver.dirall( &path ) {
-            Ok(x) => x,
-            _ => {
-                eprintln!("Trouble getting directory of {}",&path ) ;
-                return Dir::null_dir() ;
-            },
-        };
-        let dirlist = match String::from_utf8(dir_u8) {
-            Ok(d) => d,
-            _ => {
-                eprintln!("Bad characters in directory of {}",&path ) ;
-                return Dir::null_dir() ;
-            },
-        };
-        // directory
-        Dir {
-            contents: dirlist
-                .split(',')
-                .map( |f| File::new( f.to_string() ) )
-                .collect(),
-        }
+        match owserver.dirall( &path ) {
+			Ok(d) => Dir {
+				contents: d
+				.into_iter()
+				.map( File::new )
+				.collect(),
+				},
+			Err(e) => {
+				eprintln!("Trouble reading directory {}: {} ", &path,e );
+				Dir::null_dir()
+			},
+		}
     }
     fn null_dir() -> Self {
         Dir {

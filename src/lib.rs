@@ -144,11 +144,21 @@ impl OwClient {
     const PRESSURE_PSI:  u32 = 0x00100000 ;
     const PRESSURE_PA:   u32 = 0x00140000 ;
     // -- Other independent flags
+    #[allow(unused)]
     const OWNET_FLAG:  u32 = 0x00000100 ;
+
+    #[allow(unused)]
     const UNCACHED:    u32 = 0x00000020 ;
+
+    #[allow(unused)]
     const SAFEMODE:    u32 = 0x00000010 ;
+
+    #[allow(unused)]
     const ALIAS:       u32 = 0x00000008 ;
+
     const PERSISTENCE: u32 = 0x00000004 ;
+
+    #[allow(unused)]
     const BUS_RET:     u32 = 0x00000002 ;
 
     fn new() -> Self {
@@ -452,14 +462,16 @@ impl OwClient {
     /// * efficiently uses a single message
     /// * honors the _--dir_ command line option
     /// * honors the _--bare_ command line option
-    /// * returns `Vec<u8>` or error
-    /// * result can be displayed with **show_text**
-    pub fn dirall( &self, path: &str ) -> OwEResult<Vec<u8>> {
-        match self.slash {
+    /// * returns `Vec<String>` or error
+    pub fn dirall( &self, path: &str ) -> OwEResult<Vec<String>> {
+        let d = match self.slash {
             true => self.get_bare_value(path,OwClient::make_dirallslash),
             _ => self.get_bare_value(path,OwClient::make_dirall),
-        }
+        } ? ;
+        let s = str::from_utf8( &d )? .split(',');
+        Ok(s.map( String::from ).collect())
     }
+    
     /// ### get
     /// combines **dir** and **read** functionality
     /// * _read_ if path is a file
@@ -484,19 +496,11 @@ impl OwClient {
         if self.hex {
             Ok(v.iter().map(|b| format!("{:02X}",b)).collect::<Vec<String>>().join(" "))
         } else {
-            self.show_text(v)
+            let s = str::from_utf8(&v) ? ;
+            Ok(s.to_string())
         }
     }
 
-    /// ### show_test 
-    /// prints the result of an owserver query
-    /// * ignores the hex setting
-    /// * good for **dir**
-    pub fn show_text( &self, v: Vec<u8> ) -> OwEResult<String> {
-        let s = str::from_utf8(&v) ? ;
-        Ok(s.to_string())
-    }
-    
     /// ### input_to_write
     /// take the value string for **owwrite**
     /// * if not --hex, use str as bytes directly, else

@@ -104,18 +104,7 @@ fn main() {
 // print 1-wire directory contents
 fn from_path( owserver: &owrust::OwClient, path: String ) {
     match owserver.dirall(&path) {
-        Ok(files) => {
-            match owserver.show_text(files) {
-                Ok(t) => {
-                    println!("{}",t);
-                },
-                Err(e) => {
-                    eprintln!("Trouble displaying directory {}",e);
-                }
-            } ;
-        },
-        Err(e) => {
-            eprintln!("Trouble with path {} Error {}",path,e);
-        }
+        Ok(files) => println!("{}",files.join("\n")),
+        Err(e) => eprintln!("Trouble with path {} Error {}",path,e),
     }
 }   
