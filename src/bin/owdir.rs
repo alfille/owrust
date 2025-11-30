@@ -12,11 +12,17 @@
 //! ```
 //! owdir [OPTIONS] PATH
 //! ```
+//! ## PURPOSE
+//! __owdir__ shows a 1-wire "directory" via owserver
+//! * Root (/) directories show devices and informational entries (like `statistics`)
+//! * Device (/10.132542312) directories show device entries. Information and properties (like `temperature`) 
+//! * All entries are shown from the root of owserver. There is no "current directory"
 //!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
 //! * `--dir`      Add trailing **/** for directory elements
-//! * `--bare`     Suppress non-device entries 
+//! * `--bare`     Suppress non-device entries
+//! * `--prune`    Even more spare output suppressing convenience files like `id` and `crc` 
 //! * -h           for full list of options
 //!
 //! ## PATH
@@ -36,19 +42,28 @@
 //! owdir -s localhost:4304 /
 //! ```
 //! ```text
-//! /10.67C6697351FF,/05.4AEC29CDBAAB,/bus.0,/uncached,/settings,/system,/statistics,/structure,/simultaneous,/alarm
+//! /10.67C6697351FF
+//! /05.4AEC29CDBAAB
+//! /bus.0
+//! /uncached
+//! /settings
+//! /system
+//! /statistics
+//! /structure
+//! /simultaneous
+//! /alarm
 //! ```
 //! Read the root directory, dont'show non-devices and split entries to separate lines
 //! ```
-//! owdir -s localhost:4304 --bare / | tr ',' '\n'
+//! owdir -s localhost:4304 --bare /
 //! ```
 //! ```text
 //! /10.67C6697351FF
 //! /05.4AEC29CDBAAB
 //! ```
-//! Read a device directory and split entries to separate lines
+//! Read a device directory
 //! ```
-//! owdir -s localhost:4304 /10.67C6697351FF | tr ',' '\n'
+//! owdir -s localhost:4304 /10.67C6697351FF
 //! ```
 //! ```text
 //! /10.67C6697351FF/address
@@ -69,7 +84,21 @@
 //! /10.67C6697351FF/templow
 //! /10.67C6697351FF/type
 //! ``` 
-//! {c} 2025 Paul H Alfille -- MIT Licence
+//! Read a device directory "pruning out" the convenience entries
+//! ```
+//! owdir -s localhost:4304 --prune /10.67C6697351FF
+//! ```
+//! ```text
+//! /10.67C6697351FF/alias
+//! /10.67C6697351FF/errata
+//! /10.67C6697351FF/latesttemp
+//! /10.67C6697351FF/power
+//! /10.67C6697351FF/scratchpad
+//! /10.67C6697351FF/temperature
+//! /10.67C6697351FF/temphigh
+//! /10.67C6697351FF/templow
+//! ``` 
+//! ### {c} 2025 Paul H Alfille -- MIT Licence
 
 // owrust project
 // https://github.com/alfille/owrust
