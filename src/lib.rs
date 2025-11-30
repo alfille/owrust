@@ -117,6 +117,7 @@ pub struct OwClient {
     slash:       bool,
     hex:         bool,
     bare:        bool,
+    prune:       bool,
     persistence: bool,
     debug:       u32,
     flags:       u32,
@@ -172,6 +173,7 @@ impl OwClient {
             slash: false,
             hex: false,
             bare: false,
+            prune: false,
             persistence: false,
             debug: 0,
             flags: 0,
@@ -181,7 +183,7 @@ impl OwClient {
     }
         
     // make the owserver flag field based on configuration settings
-    fn make_flags( &mut self ) {
+    pub fn make_flags( &mut self ) {
         let mut flags = 0 ;
         if ! self.bare {
             flags |= OwClient::BUS_RET ;
@@ -371,18 +373,6 @@ impl OwClient {
         }
         Ok(Vec::new())
     }
-    fn get_bare_value( &self, path: &str, f: fn(&OwClient, &str)->OwEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
-        let msg = f( self, path ) ? ;
-        let mut rcv = self.send_get_single( msg ) ? ;
-        if rcv.payload > 0 {
-            if self.bare {
-                rcv.bare_filter() ? ;
-            }
-            let v: Vec<u8> = rcv.content ;
-            return Ok( v ) ;
-        }
-        Ok(Vec::new())
-    }
     
     /// ### read
     /// reads a value from a 1-wire file
@@ -418,17 +408,10 @@ impl OwClient {
     /// * honors the _--bare_ command line option
     /// * returns `Vec<u8>` or error
     /// * result can be displayed with **show_text**
-    pub fn dir( &self, path: &str ) -> OwEResult<Vec<u8>> {
+    pub fn dir( &self, path: &str ) -> OwEResult<Vec<String>> {
         let msg = self.make_dir( path ) ? ;
         let mut rcv = self.send_get_many( msg ) ? ;
-        if rcv.payload > 0 {
-            if self.bare {
-                rcv.bare_filter() ? ;
-            }
-            let v: Vec<u8> = rcv.content ;
-            return Ok( v ) ;
-        }
-        Ok(Vec::new())
+        self.dirboth( &mut rcv.content )
     }
 
     /// ### present
@@ -457,19 +440,53 @@ impl OwClient {
             Ok(ret)
         }
     }
+
+    // Get last base of "filename" excluding blank or blank
+    fn basename( path: &str ) -> String {
+        let copy = path.to_string() ;
+        for n in copy.split('/').rev() {
+            if ! n.is_empty() {
+                n.to_string() ;
+                let m: Vec<&str> = n.split('.').collect();
+                return m[0].to_string() ;
+            }
+        }
+        "".to_string()
+    }
+    // dirboth prunes nulls and possibly the prunelist if --prune specified
+    pub fn dirboth( &self, raw_dir: &mut Vec<u8>  ) -> OwEResult<Vec<String>> {
+        raw_dir.retain( |&b| b!=0 ) ;
+        let mut s : Vec<&str> = str::from_utf8( raw_dir )? .split(',').collect();
+        if self.prune {
+            let prune_list: Vec<&str> = vec![
+                "address",
+                "crc8",
+                "family",
+                "id",
+                "locator",
+                "r_address",
+                "r_id",
+                "r_locator",
+                "type",
+                "bus",
+                ];
+            s.retain( |&x| !prune_list.contains(&OwClient::basename(x).as_str()) ) ;
+        }
+        Ok(s.into_iter().map( String::from ).collect())
+    }
     /// ### dirall
     /// returns the path directory listing
     /// * efficiently uses a single message
     /// * honors the _--dir_ command line option
     /// * honors the _--bare_ command line option
+    /// * removes some stray null bytes erroneously added by original owserver to file names
     /// * returns `Vec<String>` or error
     pub fn dirall( &self, path: &str ) -> OwEResult<Vec<String>> {
-        let d = match self.slash {
-            true => self.get_bare_value(path,OwClient::make_dirallslash),
-            _ => self.get_bare_value(path,OwClient::make_dirall),
+        let mut d: Vec<u8> = match self.slash {
+            true => self.get_value(path,OwClient::make_dirallslash),
+            _ => self.get_value(path,OwClient::make_dirall),
         } ? ;
-        let s = str::from_utf8( &d )? .split(',');
-        Ok(s.map( String::from ).collect())
+        self.dirboth( &mut d )
     }
     
     /// ### get
@@ -483,8 +500,8 @@ impl OwClient {
     /// * result can be displayed with **show_result**
     pub fn get( &self, path: &str ) -> OwEResult<Vec<u8>> {
         match self.slash {
-            true => self.get_bare_value( path, OwClient::make_getslash),
-            _ => self.get_bare_value( path, OwClient::make_get),
+            true => self.get_value( path, OwClient::make_getslash),
+            _ => self.get_value( path, OwClient::make_get),
         }
     }
 
@@ -627,37 +644,6 @@ impl OwMessageReceive {
     fn tell( &self) {
         eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
     }
-
-    fn bare_filter( &mut self ) -> OwEResult<()> {
-        let s = String::from_utf8(self.content.clone()) ? ;
-        self.content = s.split(',')
-            .filter( |s| ! OwMessageReceive::is_bad_bare(s) )
-            .collect::<Vec<&str>>()
-            .join(",")
-            .as_bytes()
-            .to_vec();
-        self.payload = self.content.len() as u32 ;
-        Ok(())
-    }
-
-    // filter devices properties that are less interesting
-    fn is_bad_bare(path: &str) -> bool {
-        let bare_bad: Vec<&str> = vec![
-            "address",
-            "crc8",
-            "family",
-            "id",
-            "locator",
-            "r_address",
-            "r_id",
-            "r_locator",
-            "type",
-            ];
-        match path.split('/').rev().find(|s| !s.is_empty()) {
-            Some(s) => bare_bad.contains(&s),
-            _ => false,
-        }
-    }
 }
 
 /// ### OwEResult
@@ -704,6 +690,15 @@ impl std::error::Error for OwError {
     }
 }
 
+use std::io;
+use std::convert::From;
+impl From<OwError> for io::Error {
+    fn from(error: OwError) -> Self {
+        io::Error::other(
+            error.to_string()
+        )
+    }
+}
 impl From<std::io::Error> for OwError {
     fn from(e: std::io::Error) -> Self {
         OwError::Io(e)
@@ -757,4 +752,20 @@ mod tests {
         let x = owc.show_result(v).unwrap() ;
         assert_eq!(x,"48 65 6C 6C 6F");
     }
+    #[test]
+    fn bn_test() {
+        let xs = vec!(
+        ("basename", "basename".to_string()),
+        ("basename.0","basename".to_string()),
+        ("basename.1/","basename".to_string()),
+        ("/dir/basename","basename".to_string()),
+        ("dir/basename/","basename".to_string()),
+        ("/root/dir/basename.2.3","basename".to_string()),
+        );
+        for x in xs {
+            let s = OwClient::basename(x.0);
+            assert_eq!(s,x.1);
+        }
+    }
 }
+

@@ -35,6 +35,7 @@ Display
   --offset Position in field to start returned value (for long memory contents)
   --bare   Show only 1-wire devices, not virtual directories
              also suppress convenience properties like `id`, `crc`, etc.
+  --prune  Suppresses bus, id, crc,address and location (only for DIR and DIRALL)
   --persist Keep the connection to owserver live rather than reestablishing
              for every query. Improves performance. 
 
@@ -197,13 +198,24 @@ Read a virtual 1-wire directory from owserver.
     owserver.format = d.unwrap_or(crate::Format::DEFAULT) ;
     
     // Persist
-    owserver.persistence = args.contains("--persist") ;
+    if args.contains("--persist") {
+        owserver.persistence = true ;
+    }
 
     // Display
-    owserver.hex = args.contains("--hex") ;
-    owserver.slash = args.contains("--dir") ;
-    owserver.bare = args.contains("--bare") ;
-    
+    if args.contains("--hex") {
+        owserver.hex = true ;
+    }
+    if args.contains("--dir") {
+        owserver.slash = true ;
+    }
+    if args.contains("--bare") {
+        owserver.bare = true ;
+    }
+    if args.contains("--prune") {
+        owserver.bare = true ;
+        owserver.prune = true ;
+    }    
     let y = args.opt_value_from_str("--size") ? ;
     if let Some(x) = y {
         owserver.size = x ;
@@ -250,7 +262,6 @@ fn parse_device(s: &str) -> OwEResult<crate::Format> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::OsString;
     
     fn short( opt: &String ) -> String {
         let c = opt.chars().next().unwrap_or('X') ;

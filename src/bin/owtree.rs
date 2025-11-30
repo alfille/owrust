@@ -8,16 +8,18 @@
 //! * **OWFS** [documentation](https://owfs.org) and [code](https://github.com/owfs/owfs)
 //! * **owrust** [repository](https://github.com/alfille/owrust)
 //!
+//! ## PURPOSE
+//! Show the 1-wire directory structure and devices. Similar to the unix `tree` program.
 //! ## SYNTAX
 //! ```
-//! owtee [OPTIONS] PATH
+//! owtree [OPTIONS] PATH
 //! ```
 //!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
 //! * `--dir`      Add trailing **/** for directory elements
 //! * `--bare`     Suppress non-device entries
-//! *                and non-unique device entries 
+//! * `--prune`    Even more spare output suppressing convenience files like `id` and `crc` 
 //! * -h           for full list of options
 //!
 //! ## PATH
@@ -30,47 +32,118 @@
 //! * `owtree` is a command line program
 //! * output to stdout
 //! * errors to stderr
+//! * can be "piped" to uther programs like `less` and `grep`
 //! 
 //! ## EXAMPLE
-//! Read root 1-wire directory
+//! ### Read root 1-wire directory
 //! ```
-//! owdir -s localhost:4304 /
-//! ```
-//! ```text
-//! /10.67C6697351FF,/05.4AEC29CDBAAB,/bus.0,/uncached,/settings,/system,/statistics,/structure,/simultaneous,/alarm
-//! ```
-//! Read the root directory, dont'show non-devices and split entries to separate lines
-//! ```
-//! owdir -s localhost:4304 --bare / | tr ',' '\n'
+//! owtree -s localhost:4304 | head -30
 //! ```
 //! ```text
-//! /10.67C6697351FF
-//! /05.4AEC29CDBAAB
+//! /
+//! ├── 10.67C6697351FF
+//! │   ├── address
+//! │   ├── alias
+//! │   ├── crc8
+//! │   ├── errata
+//! │   │   ├── die
+//! │   │   ├── trim
+//! │   │   ├── trimblanket
+//! │   │   └── trimvalid
+//! │   ├── family
+//! │   ├── id
+//! │   ├── latesttemp
+//! │   ├── locator
+//! │   ├── power
+//! │   ├── r_address
+//! │   ├── r_id
+//! │   ├── r_locator
+//! │   ├── scratchpad
+//! │   ├── temperature
+//! │   ├── temphigh
+//! │   ├── templow
+//! │   └── type
+//! ├── 05.4AEC29CDBAAB
+//! │   ├── PIO
+//! │   ├── address
+//! │   ├── alias
+//! │   ├── crc8
+//! │   ├── family
+//! │   ├── id
+//! ...
 //! ```
-//! Read a device directory and split entries to separate lines
+//! There is a lot of virtual information included
+//! * Everything is mirrored in the bus.x directories
+//! * an a mirror in uncached
+//! * Total line count `owtree | wc -l` = 6582
+//! ### Read __bare__ root 1-wire directory
 //! ```
-//! owdir -s localhost:4304 /10.67C6697351FF | tr ',' '\n'
+//! owtree -s localhost:4304 --bare | head -30
 //! ```
 //! ```text
-//! /10.67C6697351FF/address
-//! /10.67C6697351FF/alias
-//! /10.67C6697351FF/crc8
-//! /10.67C6697351FF/errata
-//! /10.67C6697351FF/family
-//! /10.67C6697351FF/id
-//! /10.67C6697351FF/latesttemp
-//! /10.67C6697351FF/locator
-//! /10.67C6697351FF/power
-//! /10.67C6697351FF/r_address
-//! /10.67C6697351FF/r_id
-//! /10.67C6697351FF/r_locator
-//! /10.67C6697351FF/scratchpad
-//! /10.67C6697351FF/temperature
-//! /10.67C6697351FF/temphigh
-//! /10.67C6697351FF/templow
-//! /10.67C6697351FF/type
-//! ``` 
-//! {c} 2025 Paul H Alfille -- MIT Licence
+//! /
+//! ├── 10.67C6697351FF
+//! │   ├── address
+//! │   ├── alias
+//! │   ├── crc8
+//! │   ├── errata
+//! │   │   ├── die
+//! │   │   ├── trim
+//! │   │   ├── trimblanket
+//! │   │   └── trimvalid
+//! │   ├── family
+//! │   ├── id
+//! │   ├── latesttemp
+//! │   ├── locator
+//! │   ├── power
+//! │   ├── r_address
+//! │   ├── r_id
+//! │   ├── r_locator
+//! │   ├── scratchpad
+//! │   ├── temperature
+//! │   ├── temphigh
+//! │   ├── templow
+//! │   └── type
+//! ├── 05.4AEC29CDBAAB
+//! │   ├── PIO
+//! │   ├── address
+//! │   ├── alias
+//! │   ├── crc8
+//! │   ├── family
+//! │   ├── id
+//! ...
+//! ```
+//! * No virtual information included (not apparent in the snippet above)
+//! * Total line count `owtree --bare | wc -l` = 36
+//! ### Read __pruned__ root 1-wire directory
+//! ```
+//! owtree -s localhost:4304 --prune | head -30
+//! ```
+//! ```text
+//! /
+//! ├── 10.67C6697351FF
+//! │   ├── alias
+//! │   ├── errata
+//! │   │   ├── die
+//! │   │   ├── trim
+//! │   │   ├── trimblanket
+//! │   │   └── trimvalid
+//! │   ├── latesttemp
+//! │   ├── power
+//! │   ├── scratchpad
+//! │   ├── temperature
+//! │   ├── temphigh
+//! │   └── templow
+//! └── 05.4AEC29CDBAAB
+//!     ├── PIO
+//!     ├── alias
+//!     └── sensed
+//! ```
+//! * `--prune` also triggers `--bare` automatically
+//! * No virtual information included
+//! * Convenience files (e.g. id) are suppressed
+//! * Total line count `owtree --bare | wc -l` = 18
+//! ### {c} 2025 Paul H Alfille -- MIT Licence
 
 // owrust project
 // https://github.com/alfille/owrust
@@ -79,8 +152,9 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::parse_args ;
+use std::io::{self, Write};
 
-fn main() {
+fn main() -> io::Result<()> {
     let mut owserver = owrust::new() ; // create structure for owserver communication
 
     // configure and get paths
@@ -98,66 +172,83 @@ fn main() {
     // add slash and persistence
     match parse_args::temporary_client( &owserver, vec!("--dir","--persist")) {
         Ok( new_server ) => {
+            let mut output_handle = io::stdout().lock();
             for path in paths.into_iter() {
-                from_path( &new_server, path ) ;
+                match from_path( &new_server, &mut output_handle, path ) {
+                    Ok(_) => continue,
+                    Err(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
+                        // tolerate BrokenPipe for programs like "head"
+                        return Ok(()) ;
+                    },
+                    Err(e) => {
+                        return Err(e) ;
+                    }
+                }
             }
         },
-        Err(_e) => {
+        Err(e) => {
             eprintln!("Could not set persistence and directory signal");
+            return Err(e.into()) ;
         },
     } ;
+    Ok(())
 }
 
-fn from_path ( owserver: &owrust::OwClient, path: String ) {
+// start at path, printing and following directories recursively
+fn from_path<W: Write>( owserver: &owrust::OwClient, output_handle: &mut W, path: String ) -> io::Result<()> {
     let root = File::root(path) ;
-    root.print( owserver, &"".to_string(), true ) ;
+    root.root_print( owserver, output_handle )
 }
 
 #[derive(Debug,Clone)]
+// Structure for a directory
 struct Dir {
     contents: Vec<File>,
 }
 impl Dir {
+    // directory needs to call dirall to get a list of contents
     fn new( owserver: &owrust::OwClient, path: String ) -> Self {
         match owserver.dirall( &path ) {
-			Ok(d) => Dir {
-				contents: d
-				.into_iter()
-				.map( File::new )
-				.collect(),
-				},
-			Err(e) => {
-				eprintln!("Trouble reading directory {}: {} ", &path,e );
-				Dir::null_dir()
-			},
-		}
+            Ok(d) => Dir {
+                contents: d
+                .into_iter()
+                .map( File::new )
+                .collect(),
+                },
+            Err(e) => {
+                eprintln!("Trouble reading directory {}: {} ", &path,e );
+                Dir::null_dir()
+            },
+        }
     }
     fn null_dir() -> Self {
         Dir {
             contents: vec!(),
         }
     }
-    fn print( &self, owserver: &owrust::OwClient, prefix: &String ) {
+    // print each file in directory
+    fn print<W: Write>( &self, owserver: &owrust::OwClient,  output_handle: &mut W, prefix: &String )  -> io::Result<()> {
         let len = self.contents.len() ;
-        let prefix_mid = format!("{}{}",prefix,RGT);
-        let prefix_end = format!("{}{}",prefix,TAB);
         for (i,f) in self.contents.iter().enumerate() {
             if i < len-1 {
-                f.print( owserver, &prefix_mid, false )
+                f.print( owserver, output_handle, prefix, false ) ?
             } else {
-                f.print( owserver, &prefix_end, true )
+                f.print( owserver, output_handle, prefix, true ) ?
             }
         }
+        Ok(())
     }
 } 
 
 #[derive(Debug,Clone)]
+// file structure for each entry
 struct File {
-    path: String,
-    name: String,
-    dir: bool,
+    path: String, // full path
+    name: String, // filename itself (for display)
+    dir: bool, // is this a directory?
 }
 impl File {
+    // parse file
     fn new( path: String ) -> Self {
         let parts: Vec<String> = path
             .split('/')
@@ -200,21 +291,30 @@ impl File {
             dir: true,
         }
     }
-    fn print( &self, owserver: &owrust::OwClient, prefix: &String, last: bool ) {
+    fn root_print<W: Write>( &self, owserver: &owrust::OwClient, output_handle: &mut W )  -> io::Result<()> {
         // File
+        writeln!(output_handle,"{}",self.name) ? ;
+        let dir = Dir::new( owserver, self.path.clone() ) ;
+        dir.print(owserver, output_handle, &"".to_string())
+    }
+    // print each file with appropriate structure "prefix"
+    fn print<W: Write>( &self, owserver: &owrust::OwClient, output_handle: &mut W, prefix: &String, last: bool )  -> io::Result<()> {
+        // File name printed
         if last {
-            println!("{}{}{}",prefix,END,self.name);
+            writeln!(output_handle,"{}{}{}",prefix,END,self.name) ? ;
         } else {
-            println!("{}{}{}",prefix,NEXT,self.name);
+            writeln!(output_handle,"{}{}{}",prefix,NEXT,self.name) ? ;
         }
+        // Dir followed
         if self.dir {
             let prefix: String = match last {
                 true => format!("{}{}",prefix,TAB),
                 false => format!("{}{}",prefix,RGT),
             } ;
             let dir = Dir::new( owserver, self.path.clone() ) ;
-            dir.print(owserver, &prefix) ;
+            dir.print(owserver, output_handle, &prefix) ? ;
         }
+        Ok(())
     }
 }
 
