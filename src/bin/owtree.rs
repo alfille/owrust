@@ -207,7 +207,7 @@ struct Dir {
 }
 impl Dir {
     // directory needs to call dirall to get a list of contents
-    fn new( owserver: &owrust::OwClient, path: String ) -> Self {
+    fn new( owserver: &mut owrust::OwClient, path: String ) -> Self {
         match owserver.dirall( &path ) {
             Ok(d) => Dir {
                 contents: d

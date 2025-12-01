@@ -96,6 +96,16 @@ pub enum Format {
     DEFAULT,
 }
 
+#[derive(Debug)]
+struct Stream {
+    stream: Option<TcpStream>,
+}
+impl Clone for Stream {
+    fn clone( &self ) -> Self {
+        Stream{ stream: None }
+    }
+}
+
 #[derive(Debug,Clone)]
 /// ### OwClient
 /// structure that manages the connection to owserver
@@ -109,6 +119,7 @@ pub enum Format {
 /// ```
 /// let mut owserver = owrust::new() ;
 /// ```
+
 pub struct OwClient {
     owserver:    String,
     temperature: Temperature,
@@ -121,6 +132,7 @@ pub struct OwClient {
     bare:        bool,
     prune:       bool,
     persistence: bool,
+    stream:      Stream,
     debug:       u32,
     flags:       u32,
 }
@@ -177,6 +189,7 @@ impl OwClient {
             bare: false,
             prune: false,
             persistence: false,
+            stream: Stream{ stream:None },
             debug: 0,
             flags: 0,
         } ;
@@ -266,35 +279,42 @@ impl OwClient {
         self.param1( text, OwMessageSend::GETSLASH )
     }
     
-    fn send_get_single( &self, send: OwMessageSend ) -> OwEResult<OwMessageReceive> {
-        let stream = self.send_packet( send ) ? ;       
-        self.get_msg_single( stream )
+    fn send_get_single( &mut self, send: OwMessageSend ) -> OwEResult<OwMessageReceive> {
+        self.send_packet( send ) ? ;       
+        self.get_msg_single()
     }
 
-    fn send_get_many( &self, send: OwMessageSend ) -> OwEResult<OwMessageReceive> {
-        let stream = self.send_packet( send ) ? ;       
-        self.get_msg_many( stream )
+    fn send_get_many( &mut self, send: OwMessageSend ) -> OwEResult<OwMessageReceive> {
+        self.send_packet( send ) ? ;       
+        self.get_msg_many()
     }
 
-    fn get_msg_single( &self, stream: TcpStream ) -> OwEResult<OwMessageReceive> {
+    fn get_msg_single( &mut self ) -> OwEResult<OwMessageReceive> {
         // Set timeout
-        self.set_timeout( &stream ) ? ;
-        self.get_packet( &stream )
+        self.set_timeout() ? ;
+        self.get_packet()
     }
     
-    fn set_timeout( &self, stream: &TcpStream ) -> OwEResult<()> {
-        // Set timeout
-        stream.set_read_timeout( Some(Duration::from_secs(5))) ? ;
+    fn set_timeout( &mut self ) -> OwEResult<()> {
+        match self.stream.stream.as_mut() {
+            Some(s) => {
+                // Set timeout
+                s.set_read_timeout( Some(Duration::from_secs(5))) ? ;
+            },
+            None => {
+                return Err(OwError::General("No Tcp stream defined".to_string()));
+            },
+        }
         Ok(())
     }
     
     // Loop through getting packets until payload empty
     // for directories
-    fn get_msg_many( &self, stream: TcpStream ) -> OwEResult<OwMessageReceive> {
+    fn get_msg_many( &mut self ) -> OwEResult<OwMessageReceive> {
         // Set timeout
-        self.set_timeout( &stream ) ? ;
+        self.set_timeout() ? ;
         
-        let mut full_rcv = self.get_packet( &stream ) ? ;
+        let mut full_rcv = self.get_packet() ? ;
 
         if full_rcv.payload == 0 {
             return Ok(full_rcv) ;
@@ -302,7 +322,7 @@ impl OwClient {
         
         loop {
             // get more packets and add content to first one, adjusting payload size
-            let mut rcv = self.get_packet( &stream ) ? ;
+            let mut rcv = self.get_packet() ? ;
             if self.debug > 0 {
                 eprintln!("Another packet");
             }
@@ -315,7 +335,13 @@ impl OwClient {
         }
     }
     
-    fn send_packet( &self, send: OwMessageSend ) -> OwEResult<TcpStream> {
+    fn connect( &mut self ) -> OwEResult<()> {
+        let stream = TcpStream::connect( &self.owserver ) ? ;
+        self.stream.stream = Some(stream) ;
+        Ok(())
+    }
+
+    fn send_packet( &mut self, send: OwMessageSend ) -> OwEResult<()> {
         let mut msg:Vec<u8> = 
             [ send.version, send.payload, send.mtype, send.flags, send.size, send.offset ]
             .iter()
@@ -329,16 +355,45 @@ impl OwClient {
         if self.debug > 1 {
             eprintln!("about to connect");
         }
-        let mut stream = TcpStream::connect( &self.owserver ) ? ;
-        stream.write_all( &msg ) ? ;
-        Ok(stream)
+        
+        // Create or reuse a connection
+        if self.persistence {
+            match self.stream.stream.as_mut() {
+                None => {
+                    // need initial connection
+                    self.connect() ? ;
+                },
+                Some(s) => {
+                    // test existing connection
+                    match s.write_all(&[]) {
+                        Ok(()) => {},
+                        Err(_) => {
+                            // recreate
+                            self.connect() ? ;
+                        },
+                    }
+                },
+            } ;
+        } else {
+            // No persistence, make new connection
+            self.connect() ? ;
+        }
+        self.stream.stream.as_mut().unwrap().write_all( &msg ) ? ;
+        Ok(())
     }
 
-    fn get_packet( &self, mut stream: &TcpStream ) -> OwEResult<OwMessageReceive> {
+    fn get_packet( &mut self ) -> OwEResult<OwMessageReceive> {
         // get a single non-ping message.
         // May need multiple for directories
         static HSIZE: usize = 24 ;
         let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
+        
+        let stream = match self.stream.stream.as_mut() {
+            Some(s) => s,
+            None => {
+                return Err(OwError::General("No Tcp stream defined".to_string()));
+            },
+        } ;
         
         loop {
             stream.read_exact( &mut buffer ) ? ;
@@ -366,7 +421,7 @@ impl OwClient {
         }
     }
     
-    fn get_value( &self, path: &str, f: fn(&OwClient, &str)->OwEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
+    fn get_value( &mut self, path: &str, f: fn(&OwClient, &str)->OwEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
         let msg = f( self, path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         if rcv.payload > 0 {
@@ -382,7 +437,7 @@ impl OwClient {
     ///   * (e.g. /10.112233445566/temperature)
     /// * returns a `Vec<u8>` or error
     /// * result can be displayed with **show_result**
-    pub fn read( &self, path: &str ) -> OwEResult<Vec<u8>> {
+    pub fn read( &mut self, path: &str ) -> OwEResult<Vec<u8>> {
         self.get_value( path, OwClient::make_read)
     }
     /// ### write
@@ -391,7 +446,7 @@ impl OwClient {
     /// * value is a `Vec<u8>` byte sequence to write 
     ///   * (e.g. /10.112233445566/temperature)
     /// * returns () or error
-    pub fn write( &self, path: &str, value: &[u8] ) -> OwEResult<()> {
+    pub fn write( &mut self, path: &str, value: &[u8] ) -> OwEResult<()> {
         let msg = OwClient::make_write( self, path, value ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         if rcv.ret == 0 {
@@ -410,7 +465,7 @@ impl OwClient {
     /// * honors the _--bare_ command line option
     /// * returns `Vec<u8>` or error
     /// * result can be displayed with **show_text**
-    pub fn dir( &self, path: &str ) -> OwEResult<Vec<String>> {
+    pub fn dir( &mut self, path: &str ) -> OwEResult<Vec<String>> {
         let msg = self.make_dir( path ) ? ;
         let mut rcv = self.send_get_many( msg ) ? ;
         self.dirboth( &mut rcv.content )
@@ -421,7 +476,7 @@ impl OwClient {
     /// * Rarely used function
     /// * path is the 1-wire address of the the device
     /// * returns bool or error
-    pub fn present( &self, path: &str ) -> OwEResult<bool> {
+    pub fn present( &mut self, path: &str ) -> OwEResult<bool> {
         let msg = self.make_present( path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         Ok(rcv.ret==0)
@@ -432,7 +487,7 @@ impl OwClient {
     /// * Rarely used function
     /// * path is the 1-wire address of the the device property
     /// * returns `i32` or error
-    pub fn size( &self, path: &str ) -> OwEResult<i32> {
+    pub fn size( &mut self, path: &str ) -> OwEResult<i32> {
         let msg = self.make_size( path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
         let ret = rcv.ret;
@@ -483,7 +538,7 @@ impl OwClient {
     /// * honors the _--bare_ command line option
     /// * removes some stray null bytes erroneously added by original owserver to file names
     /// * returns `Vec<String>` or error
-    pub fn dirall( &self, path: &str ) -> OwEResult<Vec<String>> {
+    pub fn dirall( &mut self, path: &str ) -> OwEResult<Vec<String>> {
         let mut d: Vec<u8> = match self.slash {
             true => self.get_value(path,OwClient::make_dirallslash),
             _ => self.get_value(path,OwClient::make_dirall),
@@ -500,7 +555,7 @@ impl OwClient {
     /// * honors the _--bare_ command line option
     /// * returns `Vec<u8>` or error
     /// * result can be displayed with **show_result**
-    pub fn get( &self, path: &str ) -> OwEResult<Vec<u8>> {
+    pub fn get( &mut self, path: &str ) -> OwEResult<Vec<u8>> {
         match self.slash {
             true => self.get_value( path, OwClient::make_getslash),
             _ => self.get_value( path, OwClient::make_get),

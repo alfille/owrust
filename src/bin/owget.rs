@@ -83,7 +83,7 @@ fn main() {
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path( owserver: &owrust::OwClient, path: String ) {
+fn from_path( owserver: &mut owrust::OwClient, path: String ) {
     match owserver.get(&path) {
         Ok(value) => {
             match String::from_utf8(value) {
