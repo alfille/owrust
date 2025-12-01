@@ -76,7 +76,7 @@ fn main() {
             } else {
                 // for each path/value pair in command line
                 for chunk in paths.chunks(2) {
-                    from_path( &owserver, &chunk[0], &chunk[1] ) ;
+                    from_path( &mut owserver, &chunk[0], &chunk[1] ) ;
                 }
             }
         }

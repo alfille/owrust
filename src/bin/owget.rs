@@ -68,11 +68,11 @@ fn main() {
         Ok( paths ) => {
             if paths.is_empty() {
                 // No path -- assume root
-                from_path( &owserver, "/".to_string() ) ;
+                from_path( &mut owserver, "/".to_string() ) ;
             } else {
                 // for each pathon command line
                 for path in paths.into_iter() {
-                    from_path( &owserver, path ) ;
+                    from_path( &mut owserver, path ) ;
                 }
             }
         }

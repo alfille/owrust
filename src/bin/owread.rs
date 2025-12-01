@@ -74,7 +74,7 @@ fn main() {
             } else {
                 // for each pathon command line
                 for path in paths.into_iter() {
-                    from_path( &owserver, path ) ;
+                    from_path( &mut owserver, path ) ;
                 }
             }
         }

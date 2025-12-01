@@ -171,10 +171,10 @@ fn main() -> io::Result<()> {
     
     // add slash and persistence
     match parse_args::temporary_client( &owserver, vec!("--dir","--persist")) {
-        Ok( new_server ) => {
+        Ok( mut new_server ) => {
             let mut output_handle = io::stdout().lock();
             for path in paths.into_iter() {
-                match from_path( &new_server, &mut output_handle, path ) {
+                match from_path( &mut new_server, &mut output_handle, path ) {
                     Ok(_) => continue,
                     Err(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
                         // tolerate BrokenPipe for programs like "head"
@@ -195,7 +195,7 @@ fn main() -> io::Result<()> {
 }
 
 // start at path, printing and following directories recursively
-fn from_path<W: Write>( owserver: &owrust::OwClient, output_handle: &mut W, path: String ) -> io::Result<()> {
+fn from_path<W: Write>( owserver: &mut owrust::OwClient, output_handle: &mut W, path: String ) -> io::Result<()> {
     let root = File::root(path) ;
     root.root_print( owserver, output_handle )
 }
@@ -227,7 +227,7 @@ impl Dir {
         }
     }
     // print each file in directory
-    fn print<W: Write>( &self, owserver: &owrust::OwClient,  output_handle: &mut W, prefix: &String )  -> io::Result<()> {
+    fn print<W: Write>( &self, owserver: &mut owrust::OwClient,  output_handle: &mut W, prefix: &String )  -> io::Result<()> {
         let len = self.contents.len() ;
         for (i,f) in self.contents.iter().enumerate() {
             if i < len-1 {
@@ -291,14 +291,14 @@ impl File {
             dir: true,
         }
     }
-    fn root_print<W: Write>( &self, owserver: &owrust::OwClient, output_handle: &mut W )  -> io::Result<()> {
+    fn root_print<W: Write>( &self, owserver: &mut owrust::OwClient, output_handle: &mut W )  -> io::Result<()> {
         // File
         writeln!(output_handle,"{}",self.name) ? ;
         let dir = Dir::new( owserver, self.path.clone() ) ;
-        dir.print(owserver, output_handle, &"".to_string())
+        dir.print( owserver, output_handle, &"".to_string())
     }
     // print each file with appropriate structure "prefix"
-    fn print<W: Write>( &self, owserver: &owrust::OwClient, output_handle: &mut W, prefix: &String, last: bool )  -> io::Result<()> {
+    fn print<W: Write>( &self, owserver: &mut owrust::OwClient, output_handle: &mut W, prefix: &String, last: bool )  -> io::Result<()> {
         // File name printed
         if last {
             writeln!(output_handle,"{}{}{}",prefix,END,self.name) ? ;

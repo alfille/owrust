@@ -119,7 +119,6 @@ impl Clone for Stream {
 /// ```
 /// let mut owserver = owrust::new() ;
 /// ```
-
 pub struct OwClient {
     owserver:    String,
     temperature: Temperature,
