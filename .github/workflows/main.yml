@@ -1,5 +1,58 @@
-- name: Build mdBook
-        run: mdbook build
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Sets permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: 'latest'
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v4
+
+      - name: Build rustdoc
+        run: |
+          cargo doc --no-deps --all-features
+          
+      - name: Build mdBook (if book directory exists)
+        run: |
+          if [ -d "book" ]; then
+            cd book
+            mdbook build
+            cd ..
+          else
+            echo "No book directory found, skipping mdBook build"
+          fi
 
       - name: Combine documentation
         run: |
@@ -8,8 +61,10 @@
           # Copy rustdoc to _site/api
           cp -r target/doc _site/api
           
-          # Copy mdbook to _site/ 
-          cp -r book/* _site/
+          # Copy mdbook to _site/ (if it exists)
+          if [ -d "book/book" ]; then
+            cp -r book/book/* _site/
+          fi
           
           # Create a simple index.html that redirects or links to both
           cat > _site/index.html << 'EOF'
@@ -78,3 +133,20 @@
           </body>
           </html>
           EOF
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build-docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
