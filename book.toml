@@ -2,5 +2,19 @@
 authors = ["Paul Alfille"]
 language = "en"
 multilingual = false
-src = "book/src"
-title = "OwRust"
+src = "src"
+title = "OwRust User's Guide"
+
+
+[output.html]
+default-theme="rust"
+preferred-dark-theme="navy"
+git-repository-url="https://github.com/alfille/owrust"
+edit-url-template="https"//github.com/alfille/owrust/edit/main/book/{path}"
+
+[output.html.fold]
+enable=true
+level=0
+
+[output.html.playground]
+editable=true
