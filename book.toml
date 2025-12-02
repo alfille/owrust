@@ -2,5 +2,5 @@
 authors = ["Paul Alfille"]
 language = "en"
 multilingual = false
-src = "src"
+src = "book/src"
 title = "OwRust"
