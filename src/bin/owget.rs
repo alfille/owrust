@@ -14,6 +14,12 @@
 //! owdir [OPTIONS] PATH
 //! ```
 //!
+//! ## PURPOSE
+//! __owget__ combines the functions of __owread__ and __owget__
+//! * Useful for exploring the owfs structure without knowing if a file is a property or direcory
+//! * __owtree__ is another way of visulaizing structure
+//! * using *--dir--* for directory listing will distiguish files from directories
+//!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
 //! * `--dir`      Add trailing **/** for directory elements
@@ -47,7 +53,8 @@
 //! owget --bare
 //! ```
 //! ```text
-//! /10.67C6697351FF,/05.4AEC29CDBAAB
+//! /10.67C6697351FF
+//! /05.4AEC29CDBAAB
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence
 

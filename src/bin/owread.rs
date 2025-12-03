@@ -13,6 +13,11 @@
 //! owread [OPTIONS] PATH
 //! ```
 //!
+//! ## PURPOSE
+//! Read the value of a device property
+//! * Often a sensor reading like `10.4323424342/temperature`
+//! * can also be informational like `10.4323424342/type`
+//!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
 //! * `--hex       show the value in hexidecimal

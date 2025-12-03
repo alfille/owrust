@@ -10,6 +10,7 @@
 //!
 //! ## PURPOSE
 //! Show the 1-wire directory structure and devices. Similar to the unix `tree` program.
+//!
 //! ## SYNTAX
 //! ```
 //! owtree [OPTIONS] PATH
@@ -76,6 +77,7 @@
 //! * Everything is mirrored in the bus.x directories
 //! * an a mirror in uncached
 //! * Total line count `owtree | wc -l` = 6582
+//!
 //! ### Read __bare__ root 1-wire directory
 //! ```
 //! owtree -s localhost:4304 --bare | head -30
@@ -115,6 +117,7 @@
 //! ```
 //! * No virtual information included (not apparent in the snippet above)
 //! * Total line count `owtree --bare | wc -l` = 36
+//!
 //! ### Read __pruned__ root 1-wire directory
 //! ```
 //! owtree -s localhost:4304 --prune | head -30

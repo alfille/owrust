@@ -12,6 +12,8 @@
 //! ```
 //! owpresent [OPTIONS] PATH
 //! ```
+//! ## PURPOSE
+//! Tell whether a OWFS path is valid
 //!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)

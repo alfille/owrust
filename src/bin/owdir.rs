@@ -53,7 +53,7 @@
 //! /simultaneous
 //! /alarm
 //! ```
-//! Read the root directory, dont'show non-devices and split entries to separate lines
+//! Read the root directory, but dont'show non-devices
 //! ```
 //! owdir -s localhost:4304 --bare /
 //! ```
