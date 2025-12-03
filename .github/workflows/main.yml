@@ -57,6 +57,7 @@ jobs:
       - name: Combine documentation
         run: |
           mkdir -p _site
+          mkdir -p _site/book
           
           # Copy rustdoc to _site/api
           cp -r target/doc _site/api
