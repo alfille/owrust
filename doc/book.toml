@@ -9,7 +9,7 @@ title = "OwRust User's Guide"
 default-theme="rust"
 preferred-dark-theme="navy"
 git-repository-url="https://github.com/alfille/owrust"
-edit-url-template="https://github.com/alfille/owrust/edit/main/book/{path}"
+edit-url-template="https://github.com/alfille/owrust/edit/main/doc/{path}"
 
 [output.html.fold]
 enable=true

@@ -126,7 +126,7 @@ jobs:
                       <h2>📚 API Documentation</h2>
                       <p>Complete API reference generated from rustdoc</p>
                   </a>
-                  <a href="./book/index.html" class="doc-card">
+                  <a href="./doc/index.html" class="doc-card">
                       <h2>📖 User Guide</h2>
                       <p>Tutorials, examples, and usage guides</p>
                   </a>
