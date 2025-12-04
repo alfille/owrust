@@ -46,7 +46,7 @@ jobs:
           
       - name: Build mdBook (if book directory exists)
         run: |
-          if [ -d "book" ]; then
+          if [ -d "doc" ]; then
             cd doc
             mdbook build
             cd ..
