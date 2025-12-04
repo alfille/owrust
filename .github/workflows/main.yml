@@ -47,7 +47,7 @@ jobs:
       - name: Build mdBook (if book directory exists)
         run: |
           if [ -d "book" ]; then
-            cd book
+            cd doc
             mdbook build
             cd ..
           else
@@ -63,8 +63,8 @@ jobs:
           cp -r target/doc _site/api
           
           # Copy mdbook to _site/ (if it exists)
-          if [ -d "book/book" ]; then
-            cp -r book/book/* _site/book
+          if [ -d "doc/book" ]; then
+            cp -r doc/book/* _site/book
           fi
           
           # Create a simple index.html that redirects or links to both
