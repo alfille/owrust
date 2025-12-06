@@ -130,6 +130,14 @@ jobs:
                       <h2>📖 User Guide</h2>
                       <p>Tutorials, examples, and usage guides</p>
                   </a>
+                  <a href="./doc/index.html" class="doc-card">
+                      <h2>📖 User Guide</h2>
+                      <p>Tutorials, examples, and usage guides</p>
+                  </a>
+                  <a href="./doc/book/index.html" class="doc-card">
+                      <h2>📖 User Guide</h2>
+                      <p>Tutorials, examples, and usage guides</p>
+                  </a>
               </div>
           </body>
           </html>
