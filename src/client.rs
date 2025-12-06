@@ -41,10 +41,9 @@ use std::net::TcpStream ;
 use std::time::Duration ;
 use std::str ;
 
-pub mod parse_args ;
-pub mod error ;
+pub use crate::error::{OwError,OwEResult};
 
-pub use error::{OwError,OwEResult};
+pub mod parse_args ;
 
 /// ### new
 /// Creates a new OwClient

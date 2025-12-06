@@ -11,7 +11,7 @@
 use std::ffi::OsString;
 use pico_args::Arguments;
 use std::{env,process} ;
-use crate::{OwError,OwEResult} ;
+use crate::error::{OwError,OwEResult} ;
 
 const HELP: &str = "\
 .
@@ -161,41 +161,41 @@ Read a virtual 1-wire directory from owserver.
 
     // Temperature
     if args.contains(["-C","--Celsius"]) {
-        owserver.temperature = crate::Temperature::CELSIUS ;
+        owserver.temperature = super::Temperature::CELSIUS ;
     }
     if args.contains(["-F","--Farenheit"]) {
-        owserver.temperature = crate::Temperature::FARENHEIT ;
+        owserver.temperature = super::Temperature::FARENHEIT ;
     }
     if args.contains(["-K","--Kelvin"]) {
-        owserver.temperature = crate::Temperature::KELVIN ;
+        owserver.temperature = super::Temperature::KELVIN ;
     }
     if args.contains(["-R","--Rankine"]) {
-        owserver.temperature = crate::Temperature::RANKINE ;
+        owserver.temperature = super::Temperature::RANKINE ;
     }
 
     // Pressure
     if args.contains("--mmhg") {
-        owserver.pressure = crate::Pressure::MMHG ;
+        owserver.pressure = super::Pressure::MMHG ;
     }
     if args.contains("--inhg") {
-        owserver.pressure = crate::Pressure::INHG ;
+        owserver.pressure = super::Pressure::INHG ;
     }
     if args.contains("--mbar") {
-        owserver.pressure = crate::Pressure::MBAR ;
+        owserver.pressure = super::Pressure::MBAR ;
     }
     if args.contains("--atm") {
-        owserver.pressure = crate::Pressure::ATM ;
+        owserver.pressure = super::Pressure::ATM ;
     }
     if args.contains("--pa") {
-        owserver.pressure = crate::Pressure::PA ;
+        owserver.pressure = super::Pressure::PA ;
     }
     if args.contains("--psi") {
-        owserver.pressure = crate::Pressure::PSI ;
+        owserver.pressure = super::Pressure::PSI ;
     }
 
     // Format
     let d = args.opt_value_from_fn(["-f","--format"],parse_device) ? ;
-    owserver.format = d.unwrap_or(crate::Format::DEFAULT) ;
+    owserver.format = d.unwrap_or(super::Format::DEFAULT) ;
     
     // Persist
     if args.contains("--persist") {
@@ -247,14 +247,14 @@ Read a virtual 1-wire directory from owserver.
     Ok(result)
 }
 
-fn parse_device(s: &str) -> OwEResult<crate::Format> {
+fn parse_device(s: &str) -> OwEResult<super::Format> {
     match s {
-        "fi" => Ok(crate::Format::FI),
-        "f.i" => Ok(crate::Format::FdI),
-        "fic" => Ok(crate::Format::FIC),
-        "f.ic" => Ok(crate::Format::FdIC),
-        "fi.c" => Ok(crate::Format::FIdC),
-        "f.i.c" => Ok(crate::Format::FdIdC),
+        "fi" => Ok(super::Format::FI),
+        "f.i" => Ok(super::Format::FdI),
+        "fic" => Ok(super::Format::FIC),
+        "f.ic" => Ok(super::Format::FdIC),
+        "fi.c" => Ok(super::Format::FIdC),
+        "f.i.c" => Ok(super::Format::FdIdC),
         _  => Err(OwError::Input(format!("Invalid format {}",s))),
     }
 }
@@ -286,10 +286,10 @@ mod tests {
     #[test]
     fn test_short_long() {
         for ts in [
-            ("Celsius",  crate::OwClient::TEMPERATURE_C,),
-            ("Kelvin",   crate::OwClient::TEMPERATURE_K,),
-            ("Farenheit",crate::OwClient::TEMPERATURE_F,),
-            ("Rankine",  crate::OwClient::TEMPERATURE_R,),
+            ("Celsius",  super::OwClient::TEMPERATURE_C,),
+            ("Kelvin",   super::OwClient::TEMPERATURE_K,),
+            ("Farenheit",super::OwClient::TEMPERATURE_F,),
+            ("Rankine",  super::OwClient::TEMPERATURE_R,),
             ] {
             let test = ts.0.to_string() ;        
             for t in [short(&test), long(&test)] {
@@ -305,14 +305,14 @@ mod tests {
     #[test]
     fn long_opt() {
         for ts in [
-            ("mbar", crate::OwClient::PRESSURE_MBAR,),
-            ("mmhg", crate::OwClient::PRESSURE_MMHG,),
-            ("inhg", crate::OwClient::PRESSURE_INHG,),
-            ("atm",  crate::OwClient::PRESSURE_ATM,),
-            ("pa",   crate::OwClient::PRESSURE_PA,),
-            ("psi",  crate::OwClient::PRESSURE_PSI,),
+            ("mbar", super::OwClient::PRESSURE_MBAR,),
+            ("mmhg", super::OwClient::PRESSURE_MMHG,),
+            ("inhg", super::OwClient::PRESSURE_INHG,),
+            ("atm",  super::OwClient::PRESSURE_ATM,),
+            ("pa",   super::OwClient::PRESSURE_PA,),
+            ("psi",  super::OwClient::PRESSURE_PSI,),
             
-            ("persist", crate::OwClient::PERSISTENCE,),            
+            ("persist", super::OwClient::PERSISTENCE,),            
             ] {
             let test = ts.0.to_string() ;        
             for t in [long(&test)] {
@@ -328,10 +328,10 @@ mod tests {
     #[test]
     fn clone_temperature() {
         for ts in [
-            ("Celsius",  crate::OwClient::TEMPERATURE_C,),
-            ("Kelvin",   crate::OwClient::TEMPERATURE_K,),
-            ("Farenheit",crate::OwClient::TEMPERATURE_F,),
-            ("Rankine",  crate::OwClient::TEMPERATURE_R,),
+            ("Celsius",  super::OwClient::TEMPERATURE_C,),
+            ("Kelvin",   super::OwClient::TEMPERATURE_K,),
+            ("Farenheit",super::OwClient::TEMPERATURE_F,),
+            ("Rankine",  super::OwClient::TEMPERATURE_R,),
             ] {
             let test = ts.0.to_string() ;        
             for t in [short(&test), long(&test)] {
