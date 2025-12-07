@@ -35,6 +35,8 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+/// message received back from owserver
+/// * header (24 bytes) and content
 pub(super) struct OwMessageReceive {
     pub(super) version: u32,
     pub(super) payload: u32,
@@ -46,6 +48,7 @@ pub(super) struct OwMessageReceive {
 }
 impl OwMessageReceive {
     const HSIZE: usize = 24 ;
+    /// Take first 24 bytes of buffer to fill header
     pub(super) fn new( buffer: [u8;OwMessageReceive::HSIZE] ) -> Self {
         OwMessageReceive {          
             version: u32::from_be_bytes(buffer[ 0.. 4].try_into().unwrap()),

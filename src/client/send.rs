@@ -40,6 +40,11 @@ use std::str ;
 
 pub use crate::error::{OwEResult};
 
+/// ### OwMessageSend
+/// message constructed to send to owserver
+/// * 24 byte header (6 32-bit integers)
+/// * contents (C-string)
+/// * needs to be converted to network-endian format before sending
 pub(super) struct OwMessageSend {
     pub(super) version: u32,
     pub(super) payload: u32,
@@ -69,6 +74,7 @@ impl OwMessageSend {
     pub(super) const DIRALLSLASH: u32 = 9 ;
     pub(super) const GETSLASH:    u32 = 10 ;
 
+    /// Create a nominal message (to be modified)
     pub(super) fn new(flag: u32)-> OwMessageSend {
         OwMessageSend {
             version: OwMessageSend::SENDVERSION,
@@ -81,6 +87,7 @@ impl OwMessageSend {
         }
     }
 
+    /// Name the message types
     pub(super) fn message_name( mtype: u32 ) -> &'static str {
         match mtype {
             OwMessageSend::NOP => "NOP",
@@ -97,6 +104,8 @@ impl OwMessageSend {
         }
     }
 
+    /// first element of content and update payload length
+    /// * should be null ended string or nothing
     pub(super) fn add_path( &mut self, path: &str ) -> OwEResult<()> {
         // Add nul-terminated path (and includes null in payload size)
         let s = ffi::CString::new(path) ? ;
@@ -105,6 +114,11 @@ impl OwMessageSend {
         Ok(())
     }
     
+    /// Add a second field
+    /// * used for WRITE messages
+    /// * not null ended
+    /// * payload includes both
+    /// * size is just this field's 
     pub(super) fn add_data( &mut self, data: &[u8] ) {
         // Add data after path without nul
         self.content.extend_from_slice(data) ;
@@ -112,48 +126,3 @@ impl OwMessageSend {
         self.payload += self.size ;
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn new_client() {
-        let owc = OwClient::new();
-        assert_eq!(owc.temperature, Temperature::DEFAULT);
-        assert_eq!(owc.pressure, Pressure::DEFAULT);
-        assert_eq!(owc.format, Format::DEFAULT);
-    }
-    
-    #[test]
-    fn printable_test() {
-        let mut owc = OwClient::new();
-        // Regular
-        owc.hex = false ;
-        let v :Vec<u8> = vec!(72,101,108,108,111);
-        let x = owc.show_result(v).unwrap() ;
-        assert_eq!(x,"Hello");
-
-        // Hex
-        owc.hex = true ;
-        let v :Vec<u8> = vec!(72,101,108,108,111);
-        let x = owc.show_result(v).unwrap() ;
-        assert_eq!(x,"48 65 6C 6C 6F");
-    }
-    #[test]
-    fn bn_test() {
-        let xs = vec!(
-        ("basename", "basename".to_string()),
-        ("basename.0","basename".to_string()),
-        ("basename.1/","basename".to_string()),
-        ("/dir/basename","basename".to_string()),
-        ("dir/basename/","basename".to_string()),
-        ("/root/dir/basename.2.3","basename".to_string()),
-        );
-        for x in xs {
-            let s = OwClient::basename(x.0);
-            assert_eq!(s,x.1);
-        }
-    }
-}
-
