@@ -1,6 +1,6 @@
 # OwRust
 - [Overview](overview.md)
-- [1-wire system](1wire/md)
+- [1-wire system](1wire.md)
 - [Classic OWFS](owfs_classic.md)
 - [owrust](owrust.md)
 - [owshell](owshell.md)
