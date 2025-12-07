@@ -35,11 +35,16 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use std::ffi ;
 use std::io::{Read,Write} ;
 use std::net::TcpStream ;
 use std::time::Duration ;
 use std::str ;
+
+mod receive ;
+use receive::OwMessageReceive ;
+
+mod send ;
+use send::OwMessageSend ;
 
 pub use crate::error::{OwError,OwEResult};
 
@@ -600,106 +605,6 @@ impl OwClient {
     }
 }
 
-
-struct OwMessageSend {
-    version: u32,
-    payload: u32,
-    mtype:   u32,
-    flags:   u32,
-    size:    u32,
-    offset:  u32,
-    content: Vec<u8>,
-}
-
-impl OwMessageSend {
-    // Default owserver version (to owserver)
-    const SENDVERSION: u32 = 0 ;
-
-    // Maximum make_size of returned data (pretty arbitrary but matches C implementation)
-    const DEFAULTSIZE: u32 = 65536 ;
-
-    // Message types
-    const NOP:         u32 = 1 ;
-    const READ:        u32 = 2 ;
-    const WRITE:       u32 = 3 ;
-    const DIR:         u32 = 4 ;
-    const SIZE:        u32 = 5 ;
-    const PRESENT:     u32 = 6 ;
-    const DIRALL:      u32 = 7 ;
-    const GET:         u32 = 8 ;
-    const DIRALLSLASH: u32 = 9 ;
-    const GETSLASH:    u32 = 10 ;
-
-    fn new(flag: u32)-> OwMessageSend {
-        OwMessageSend {
-            version: OwMessageSend::SENDVERSION,
-            payload: 0,
-            mtype:   OwMessageSend::NOP,
-            flags:   flag,
-            size:    OwMessageSend::DEFAULTSIZE,
-            offset:  0,
-            content: [].to_vec(),
-        }
-    }
-
-    fn message_name( mtype: u32 ) -> &'static str {
-        match mtype {
-            OwMessageSend::NOP => "NOP",
-            OwMessageSend::READ => "READ",
-            OwMessageSend::WRITE => "WRITE",
-            OwMessageSend::DIR => "DIR",
-            OwMessageSend::SIZE => "SIZE",
-            OwMessageSend::PRESENT => "PRESENT",
-            OwMessageSend::DIRALL => "DIRALL",
-            OwMessageSend::GET => "GET",
-            OwMessageSend::DIRALLSLASH => "DIRALLSLASH",
-            OwMessageSend::GETSLASH => "GETSLASH",
-            _ => "UNKNOWN",
-        }
-    }
-
-    fn add_path( &mut self, path: &str ) -> OwEResult<()> {
-        // Add nul-terminated path (and includes null in payload size)
-        let s = ffi::CString::new(path) ? ;
-        self.content = s.as_bytes().to_vec() ;
-        self.payload = self.content.len() as u32 ;
-        Ok(())
-    }
-    
-    fn add_data( &mut self, data: &[u8] ) {
-        // Add data after path without nul
-        self.content.extend_from_slice(data) ;
-        self.size = data.len() as u32 ;
-        self.payload += self.size ;
-    }
-}
-
-struct OwMessageReceive {
-    version: u32,
-    payload: u32,
-    ret:     i32,
-    flags:   u32,
-    size:    u32,
-    offset:  u32,
-    content: Vec<u8>,
-}
-impl OwMessageReceive {
-    const HSIZE: usize = 24 ;
-    fn new( buffer: [u8;OwMessageReceive::HSIZE] ) -> Self {
-        OwMessageReceive {          
-            version: u32::from_be_bytes(buffer[ 0.. 4].try_into().unwrap()),
-            payload: u32::from_be_bytes(buffer[ 4.. 8].try_into().unwrap()),
-            ret:     u32::from_be_bytes(buffer[ 8..12].try_into().unwrap()) as i32,
-            flags:   u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-            size:    u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-            offset:  u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
-            content: [].to_vec(),
-        }
-    }
-    fn tell( &self) {
-        eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
-    }
-}
 
 #[cfg(test)]
 mod tests {
