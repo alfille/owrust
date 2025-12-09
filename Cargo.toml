@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 pico-args = "0.5" # Use the latest version
+md-5 = "0.10" # Or latest version

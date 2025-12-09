@@ -35,12 +35,18 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-pub mod client ;
-pub use crate::client::{OwClient,new} ;
-pub use crate::client::parse_args ;
+use std::time::Instant ;
+use md5::Md5 ;
 
-pub mod server ;
-pub use crate::server::{OwServer,new} ;
+pub(super) struct Token {
+	instant: Instant,
+}
 
-pub mod error ;
-pub use error::{OwError,OwEResult};
+impl Token {
+	fn new() -> [u8;16] {
+		let mut token = Token {
+			instant: Instant::now(),
+		} ;
+	}
+}
+	
