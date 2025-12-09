@@ -35,18 +35,26 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use std::time::Instant ;
-use md5::Md5 ;
+use std::time::{SystemTime, UNIX_EPOCH} ;
+use md5::{Md5,Digest} ;
+use rand::rngs::OsRng;
+use rand::RngCore;
 
-pub(super) struct Token {
-	instant: Instant,
-}
 
-impl Token {
-	fn new() -> [u8;16] {
-		let mut token = Token {
-			instant: Instant::now(),
-		} ;
-	}
+pub (super) fn make_token() -> [u8;16] {
+	let mut buffer: Vec<u8> = Vec::new() ;
+	buffer.extend_from_slice( &SystemTime::now().duration_since(UNIX_EPOCH).unwrap().subsec_nanos().to_le_bytes() ) ;
+	buffer.extend_from_slice(&std::process::id().to_le_bytes());
+	let mut salt = [0u8;16];
+	OsRng.fill_bytes(&mut salt );
+	buffer.extend_from_slice( &salt ) ;
+	
+	let mut hasher = Md5::new() ;
+	hasher.update(&buffer) ;
+//	hasher.finalize();
+	
+	let mut ret = [0u8;16] ;
+	ret.copy_from_slice(&hasher.finalize() ) ;
+	ret
 }
 	

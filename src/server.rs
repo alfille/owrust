@@ -41,7 +41,7 @@ use std::time::Duration ;
 use std::str ;
 
 mod token ;
-use Token::new ;
+use token::make_token ;
 
 pub use crate::error::{OwError,OwEResult};
 
