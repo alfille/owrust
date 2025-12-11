@@ -97,11 +97,11 @@ pub fn vector_line( owserver: &mut crate::OwClient, args: Vec<&str> ) -> OwEResu
     parser( owserver, Arguments::from_vec(os_args) )
 }
 
-/// ### temporary_client
+/// ### modified_client
 /// returns a clone of OwClient with `args` added
 /// 
 /// Useful for temporarily amending a connection using different flags
-pub fn temporary_client( owserver: &crate::OwClient, args: Vec<&str> ) -> OwEResult<crate::OwClient> {
+pub fn modified_client( owserver: &crate::OwClient, args: Vec<&str> ) -> OwEResult<crate::OwClient> {
     let mut clone = owserver.clone() ;
     vector_line( &mut clone, args ) ? ;
     Ok(clone)
@@ -337,7 +337,7 @@ mod tests {
             for t in [short(&test), long(&test)] {
                 let args: Vec<&str> = vec![ &t ];
                 let owserver = crate::new() ;
-                let mut owserver2 = temporary_client( &owserver, args ).unwrap() ;
+                let mut owserver2 = modified_client( &owserver, args ).unwrap() ;
                 owserver2.make_flags() ;
                 let result = owserver2.flags & ts.1 ;
                 assert_eq!(result, ts.1);

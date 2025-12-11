@@ -47,16 +47,6 @@ use token::make_token ;
 pub use crate::error::{OwError,OwEResult};
 
 #[derive(Debug)]
-struct Stream {
-    stream: Option<TcpStream>,
-}
-impl Clone for Stream {
-    fn clone( &self ) -> Self {
-        Stream{ stream: None }
-    }
-}
-
-#[derive(Debug)]
 /// ### OwServer
 /// structure that manages this owserver
 /// ### Creation
@@ -64,16 +54,16 @@ impl Clone for Stream {
 /// let mut owserver = OwServer::new("localhost.4304".to_string()) ;
 /// ```
 pub struct OwServer {
-    address: String,
+	client: crate::OwClient,
     listen_stream: TcpListener,
     token: [u8;16],
 }
     
 impl OwServer {
-    pub fn new( address: &str ) -> OwEResult<OwServer> {
+    pub fn new( client: crate::OwClient, address: &str ) -> OwEResult<OwServer> {
         Ok(OwServer {
-            address: address.to_string(),
-            listen_stream: TcpListener::bind(&address)?,
+			client: client.clone(),
+            listen_stream: TcpListener::bind(address)?,
             token: make_token(),
         })
     }
@@ -81,7 +71,7 @@ impl OwServer {
         for stream in self.listen_stream.incoming() {
             match stream {
                 Ok(s) => {
-                    let instance = OwServerInstance::new( s, self.token ) ;
+                    let instance = OwServerInstance::new( self.client.clone(), s, self.token ) ;
                     thread::spawn( move || {
                         instance.handle_query() ;
                     });
@@ -96,16 +86,16 @@ impl OwServer {
 }
 
 struct OwServerInstance {
+    client: crate::OwClient,
     stream: TcpStream,
     token: [u8;16],
-    client: crate::OwClient,
 }
 impl OwServerInstance {
-    fn new(stream: TcpStream, token: [u8;16]) -> OwServerInstance {
+    fn new(client: crate::OwClient, stream: TcpStream, token: [u8;16]) -> OwServerInstance {
         OwServerInstance {
-            stream: stream,
-            token: token.clone(),
-            client: crate::new()
+			client,
+            stream,
+            token,
         }
     }
     fn handle_query( &self ) {
@@ -117,5 +107,10 @@ impl OwServerInstance {
                 return ;
             },
         }
+        
+        // get header
+		static HSIZE: usize = 24 ;
+        let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
+
     }
 }

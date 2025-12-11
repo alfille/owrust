@@ -173,7 +173,7 @@ fn main() -> io::Result<()> {
     } ;
     
     // add slash and persistence
-    match parse_args::temporary_client( &owserver, vec!("--dir","--persist")) {
+    match parse_args::modified_client( &owserver, vec!("--dir","--persist")) {
         Ok( mut new_server ) => {
             let mut output_handle = io::stdout().lock();
             for path in paths.into_iter() {
