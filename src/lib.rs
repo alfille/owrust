@@ -40,7 +40,7 @@ pub use crate::client::{OwClient,new} ;
 pub use crate::client::parse_args ;
 
 pub mod server ;
-pub use crate::server::{OwServer,new} ;
+pub use crate::server::{OwServer} ;
 
 pub mod error ;
 pub use error::{OwError,OwEResult};

@@ -36,7 +36,8 @@
 // {c} 2025 Paul H Alfille
 
 use std::io::{Read,Write} ;
-use std::net::TcpStream ;
+use std::net::{TcpStream,TcpListener} ;
+use std::thread ;
 use std::time::Duration ;
 use std::str ;
 
@@ -44,48 +45,6 @@ mod token ;
 use token::make_token ;
 
 pub use crate::error::{OwError,OwEResult};
-
-#[derive(Debug,PartialEq,Clone)]
-/// ### Temperature scale
-/// sent to owserver in the flag parameter since only the original 1-wire 
-/// program in the chain knows the type of value being sought
-pub enum Temperature {
-    CELSIUS,
-    FARENHEIT,
-    KELVIN,
-    RANKINE,
-    DEFAULT,
-}
-
-#[derive(Debug,PartialEq,Clone)]
-/// ### Pressure scale
-/// sent to owserver in the flag parameter since only the original 1-wire 
-/// program in the chain knows the type of value being sought
-pub enum Pressure {
-    MMHG,
-    INHG,
-    PA,
-    PSI,
-    ATM,
-    MBAR,
-    DEFAULT,
-}
-
-#[derive(Debug,PartialEq,Clone)]
-/// ### 1-wire ID format
-/// has components:
-///  F family code (1 byte)
-///  I unique serial number (6 bytes)
-///  C checksum (1-byte)
-pub enum Format {
-    FI,
-    FdI,
-    FIC,
-    FIdC,
-    FdIC,
-    FdIdC,
-    DEFAULT,
-}
 
 #[derive(Debug)]
 struct Stream {
@@ -97,33 +56,66 @@ impl Clone for Stream {
     }
 }
 
-#[derive(Debug,Clone)]
-/// ### OwClient
-/// structure that manages the connection to owserver
-/// * Stores configuration settings
-/// * has public fuction for each message type to owserver
-///   * read
-///   * write
-///   * dir
-/// * convenience functions for printing results
+#[derive(Debug)]
+/// ### OwServer
+/// structure that manages this owserver
 /// ### Creation
 /// ```
-/// let mut owserver = owrust::new() ;
+/// let mut owserver = OwServer::new("localhost.4304".to_string()) ;
 /// ```
 pub struct OwServer {
-    owserver:    String,
-    temperature: Temperature,
-    pressure:    Pressure,
-    format:      Format,
-    size:        u32,
-    offset:      u32,
-    slash:       bool,
-    hex:         bool,
-    bare:        bool,
-    prune:       bool,
-    persistence: bool,
-    stream:      Stream,
-    debug:       u32,
-    flags:       u32,
+    address: String,
+    listen_stream: TcpListener,
+    token: [u8;16],
+}
+    
+impl OwServer {
+    pub fn new( address: &str ) -> OwEResult<OwServer> {
+        Ok(OwServer {
+            address: address.to_string(),
+            listen_stream: TcpListener::bind(&address)?,
+            token: make_token(),
+        })
+    }
+    pub fn serve(&self) -> OwEResult<()> {
+        for stream in self.listen_stream.incoming() {
+            match stream {
+                Ok(s) => {
+                    let instance = OwServerInstance::new( s, self.token ) ;
+                    thread::spawn( move || {
+                        instance.handle_query() ;
+                    });
+                },
+                Err(e)=>{
+                    eprintln!("Bad server query {}",e);
+                },
+            }
+        }
+        Ok(())
+    }
 }
 
+struct OwServerInstance {
+    stream: TcpStream,
+    token: [u8;16],
+    client: crate::OwClient,
+}
+impl OwServerInstance {
+    fn new(stream: TcpStream, token: [u8;16]) -> OwServerInstance {
+        OwServerInstance {
+            stream: stream,
+            token: token.clone(),
+            client: crate::new()
+        }
+    }
+    fn handle_query( &self ) {
+        // Set timeout
+        match self.stream.set_read_timeout( Some(Duration::from_secs(5))) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Cannot set timeout to server query {}",e);
+                return ;
+            },
+        }
+    }
+}
