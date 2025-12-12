@@ -295,7 +295,14 @@ impl OwClient {
     fn get_msg_single( &mut self ) -> OwEResult<OwMessageReceive> {
         // Set timeout
         self.set_timeout() ? ;
-        self.get_packet()
+        let stream = match self.stream.stream.as_mut() {
+			Some(s) => s ,
+            None => {
+                return Err(OwError::General("No Tcp stream defined".to_string()));
+            },
+		} ;
+        let rcv = OwMessageReceive::get_packet(stream) ? ;
+        Ok(rcv)
     }
     
     fn set_timeout( &mut self ) -> OwEResult<()> {
@@ -391,45 +398,6 @@ impl OwClient {
         Ok(())
     }
 
-    fn get_packet( &mut self ) -> OwEResult<OwMessageReceive> {
-        // get a single non-ping message.
-        // May need multiple for directories
-        static HSIZE: usize = 24 ;
-        let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
-        
-        let stream = match self.stream.stream.as_mut() {
-            Some(s) => s,
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            },
-        } ;
-        
-        loop {
-            stream.read_exact( &mut buffer ) ? ;
-            let mut rcv = OwMessageReceive::new(buffer);
-            
-            if self.debug > 0 {
-                rcv.tell() ;
-            }
-            
-            if (rcv.payload as i32) < 0 {
-                // ping
-                if self.debug > 1 {
-                    eprintln!("Ping");
-                }
-                continue ;
-            }
-            if rcv.payload > 0 {
-                // create Vec with just the right size (based on payload)
-                rcv.content = Vec::with_capacity(rcv.payload as usize) ;
-                rcv.content.resize(rcv.payload as usize,0);
-                
-                stream.read_exact(&mut rcv.content ) ? ;
-            }
-            return Ok(rcv) ;
-        }
-    }
-    
     fn get_value( &mut self, path: &str, f: fn(&OwClient, &str)->OwEResult<OwMessageSend>) -> OwEResult< Vec<u8>> {
         let msg = f( self, path ) ? ;
         let rcv = self.send_get_single( msg ) ? ;
