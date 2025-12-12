@@ -35,6 +35,11 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+use std::net::TcpStream ;
+use std::io::{Read,Write} ;
+pub use crate::error::{OwError,OwEResult};
+
+
 /// message received back from owserver
 /// * header (24 bytes) and content
 pub(super) struct OwMessageReceive {
@@ -62,5 +67,30 @@ impl OwMessageReceive {
     }
     pub(super) fn tell( &self) {
         eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
+    }
+    
+    pub fn get_packet( stream: &mut TcpStream ) -> OwEResult<OwMessageReceive> {
+        // get a single non-ping message.
+        // May need multiple for directories
+        static HSIZE: usize = 24 ;
+        let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
+                
+        loop {
+            stream.read_exact( &mut buffer ) ? ;
+            let mut rcv = OwMessageReceive::new(buffer);
+            
+            if (rcv.payload as i32) < 0 {
+                // ping
+                continue ;
+            }
+            if rcv.payload > 0 {
+                // create Vec with just the right size (based on payload)
+                rcv.content = Vec::with_capacity(rcv.payload as usize) ;
+                rcv.content.resize(rcv.payload as usize,0);
+                
+                stream.read_exact(&mut rcv.content ) ? ;
+            }
+            return Ok(rcv) ;
+        }
     }
 }

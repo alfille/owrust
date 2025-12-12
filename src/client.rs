@@ -317,7 +317,13 @@ impl OwClient {
         // Set timeout
         self.set_timeout() ? ;
         
-        let mut full_rcv = self.get_packet() ? ;
+        let stream = match self.stream.stream.as_mut() {
+			Some(s) => s ,
+            None => {
+                return Err(OwError::General("No Tcp stream defined".to_string()));
+            },
+		} ;
+        let mut full_rcv = OwMessageReceive::get_packet(stream) ?;
 
         if full_rcv.payload == 0 {
             return Ok(full_rcv) ;
@@ -325,7 +331,7 @@ impl OwClient {
         
         loop {
             // get more packets and add content to first one, adjusting payload size
-            let mut rcv = self.get_packet() ? ;
+            let mut rcv = OwMessageReceive::get_packet( stream ) ? ;
             if self.debug > 0 {
                 eprintln!("Another packet");
             }
