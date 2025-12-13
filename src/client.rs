@@ -36,9 +36,10 @@
 // {c} 2025 Paul H Alfille
 
 use std::io::{Read,Write} ;
-use std::net::TcpStream ;
+use std::net::{TcpStream,TcpListener} ;
 use std::time::Duration ;
 use std::str ;
+use ::std::thread ;
 
 mod receive ;
 use receive::OwMessageReceive ;
@@ -49,6 +50,11 @@ use send::OwMessageSend ;
 pub use crate::error::{OwError,OwEResult};
 
 pub mod parse_args ;
+
+/// Type for server tokens to prevent owserver network loops
+pub type Token = [u8;16] ;
+mod token ;
+use token::make_token ;
 
 /// ### new
 /// Creates a new OwClient
@@ -125,6 +131,8 @@ impl Clone for Stream {
 /// ```
 pub struct OwClient {
     owserver:    String,
+	listener: Option<String> ,
+	token: Token ,
     temperature: Temperature,
     pressure:    Pressure,
     format:      Format,
@@ -182,6 +190,8 @@ impl OwClient {
     fn new() -> Self {
         let mut owc = OwClient {
             owserver: String::from("localhost:4304"),
+            listener: None ,
+            token: make_token() ,
             temperature: Temperature::DEFAULT,
             pressure: Pressure::DEFAULT,
             format: Format::DEFAULT,
@@ -240,18 +250,16 @@ impl OwClient {
     }
     
     fn param1( &self, text: &str, mtype: u32 ) -> OwEResult<OwMessageSend> {
-        let mut msg = OwMessageSend::new(self.flags) ;
+        let mut msg = OwMessageSend::new(self.flags,mtype) ;
         if self.debug > 1 {
             eprintln!( "Type {} with text {} being prepared for sending", OwMessageSend::message_name(mtype), text ) ;
         }
-        msg.mtype = mtype ;
         msg.add_path( text ) ? ;
         Ok(msg)
     }
     
     fn make_write( &self, text: &str, value: &[u8] ) -> OwEResult<OwMessageSend> {
-        let mut msg = OwMessageSend::new(self.flags) ;
-        msg.mtype = OwMessageSend::WRITE ;
+        let mut msg = OwMessageSend::new(self.flags,OwMessageSend::WRITE) ;
         msg.add_path( text ) ? ;
         msg.add_data( value ) ;
         Ok(msg)
@@ -301,7 +309,7 @@ impl OwClient {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             },
 		} ;
-        let rcv = OwMessageReceive::get_packet(stream) ? ;
+        let rcv = OwMessageReceive::get_packet(stream,None) ? ;
         Ok(rcv)
     }
     
@@ -330,7 +338,7 @@ impl OwClient {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             },
 		} ;
-        let mut full_rcv = OwMessageReceive::get_packet(stream) ?;
+        let mut full_rcv = OwMessageReceive::get_packet(stream,None) ?;
 
         if full_rcv.payload == 0 {
             return Ok(full_rcv) ;
@@ -338,7 +346,7 @@ impl OwClient {
         
         loop {
             // get more packets and add content to first one, adjusting payload size
-            let mut rcv = OwMessageReceive::get_packet( stream ) ? ;
+            let mut rcv = OwMessageReceive::get_packet( stream,None ) ? ;
             if self.debug > 0 {
                 eprintln!("Another packet");
             }
@@ -576,6 +584,70 @@ impl OwClient {
             }}
         )
         .collect()
+    }
+}
+
+/// ### OwServer
+/// structure that manages this owserver
+/// ### Creation
+/// ```
+/// let mut owserver = OwServer::new("localhost.4304".to_string()) ;
+/// ```
+pub struct OwServer {
+	client: crate::OwClient,
+    listen_stream: TcpListener,
+}
+    
+impl OwServer {
+    pub fn new( client: crate::OwClient, address: &str ) -> OwEResult<OwServer> {
+        Ok(OwServer {
+			client: client.clone(),
+            listen_stream: TcpListener::bind(address)?,
+        })
+    }
+    pub fn serve(&self) -> OwEResult<()> {
+        for stream in self.listen_stream.incoming() {
+            match stream {
+                Ok(s) => {
+                    let instance = OwServerInstance::new( self.client.clone(), s ) ;
+                    thread::spawn( move || {
+                        instance.handle_query() ;
+                    });
+                },
+                Err(e)=>{
+                    eprintln!("Bad server query {}",e);
+                },
+            }
+        }
+        Ok(())
+    }
+}
+
+struct OwServerInstance {
+    client: crate::OwClient,
+    stream: TcpStream,
+}
+impl OwServerInstance {
+    fn new(client: crate::OwClient, stream: TcpStream) -> OwServerInstance {
+        OwServerInstance {
+			client,
+            stream,
+        }
+    }
+    fn handle_query( &self ) {
+        // Set timeout
+        match self.stream.set_read_timeout( Some(Duration::from_secs(5))) {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Cannot set timeout to server query {}",e);
+                return ;
+            },
+        }
+        
+        // get header
+		static HSIZE: usize = 24 ;
+        let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
+
     }
 }
 

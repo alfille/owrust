@@ -75,11 +75,11 @@ impl OwMessageSend {
     pub(super) const GETSLASH:    u32 = 10 ;
 
     /// Create a nominal message (to be modified)
-    pub(super) fn new(flag: u32)-> OwMessageSend {
+    pub(super) fn new(flag: u32, mtype: u32)-> OwMessageSend {
         OwMessageSend {
             version: OwMessageSend::SENDVERSION,
             payload: 0,
-            mtype:   OwMessageSend::NOP,
+            mtype,
             flags:   flag,
             size:    OwMessageSend::DEFAULTSIZE,
             offset:  0,

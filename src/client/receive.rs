@@ -38,7 +38,10 @@
 use std::net::TcpStream ;
 use std::io::{Read,Write} ;
 pub use crate::error::{OwError,OwEResult};
+use crate::client::Token ;
 
+const SERVERMESSAGE: u32 = 1<<16 ;
+const SERVERTOKENS:  u32 = 0xFFFF ;
 
 /// message received back from owserver
 /// * header (24 bytes) and content
@@ -50,6 +53,7 @@ pub(super) struct OwMessageReceive {
     pub(super) size:    u32,
     pub(super) offset:  u32,
     pub(super) content: Vec<u8>,
+    pub(super) tokenlist : Vec<Token>,
 }
 impl OwMessageReceive {
     const HSIZE: usize = 24 ;
@@ -63,13 +67,21 @@ impl OwMessageReceive {
             size:    u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
             offset:  u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
             content: [].to_vec(),
+            tokenlist: [].to_vec(),
         }
     }
     pub(super) fn tell( &self) {
         eprintln!( "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",self.version,self.payload,self.ret,self.flags,self.size,self.offset);
     }
     
-    pub fn get_packet( stream: &mut TcpStream ) -> OwEResult<OwMessageReceive> {
+    /// ### get_packet
+    /// Get a message from the network and parse it:
+    /// * read header ( 6 words), translated from network order
+    /// * read payload
+    /// * read tokens
+    /// * check for our token on list (==loop)
+    /// * ignore pings
+    pub fn get_packet( stream: &mut TcpStream, my_token: Option<Token> ) -> OwEResult<OwMessageReceive> {
         // get a single non-ping message.
         // May need multiple for directories
         static HSIZE: usize = 24 ;
@@ -79,10 +91,7 @@ impl OwMessageReceive {
             stream.read_exact( &mut buffer ) ? ;
             let mut rcv = OwMessageReceive::new(buffer);
             
-            if (rcv.payload as i32) < 0 {
-                // ping
-                continue ;
-            }
+            // read payload
             if rcv.payload > 0 {
                 // create Vec with just the right size (based on payload)
                 rcv.content = Vec::with_capacity(rcv.payload as usize) ;
@@ -90,6 +99,30 @@ impl OwMessageReceive {
                 
                 stream.read_exact(&mut rcv.content ) ? ;
             }
+            // read tokens
+            if (rcv.version & SERVERMESSAGE) == SERVERMESSAGE {
+				let toks = rcv.version & SERVERTOKENS ;
+				for _ in 0..toks {
+					let mut tok: Token = [0u8;16] ;
+					stream.read_exact( &mut tok ) ? ;
+					rcv.tokenlist.push(tok)
+				}
+			}
+			
+			// test token
+			match my_token {
+				Some(t) => if rcv.tokenlist.contains(&t) {
+					return Err(OwError::General("Loop in owserver topology".to_string())) ;
+					},
+				None => (),
+			}
+
+			// test ping message (ignore -- it's a keepalive)
+            if (rcv.payload as i32) < 0 {
+                // ping
+                continue ;
+            }
+
             return Ok(rcv) ;
         }
     }

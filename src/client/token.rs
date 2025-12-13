@@ -40,8 +40,9 @@ use md5::{Md5,Digest} ;
 use rand::rngs::OsRng;
 use rand::RngCore;
 
+use crate::client::Token ;
 
-pub (super) fn make_token() -> [u8;16] {
+pub (super) fn make_token() -> Token {
     let mut buffer: Vec<u8> = Vec::new() ;
 
     // add time
@@ -60,7 +61,7 @@ pub (super) fn make_token() -> [u8;16] {
     hasher.update(&buffer) ;
     
     // return 16 bytes
-    let mut ret = [0u8;16] ;
+    let mut ret: Token = [0u8;16] ;
     ret.copy_from_slice(&hasher.finalize() ) ;
     ret
 }
