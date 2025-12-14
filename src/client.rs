@@ -131,8 +131,8 @@ impl Clone for Stream {
 /// ```
 pub struct OwClient {
     owserver:    String,
-	listener: Option<String> ,
-	token: Token ,
+    listener: Option<String> ,
+    token: Token ,
     temperature: Temperature,
     pressure:    Pressure,
     format:      Format,
@@ -249,45 +249,32 @@ impl OwClient {
         self.flags = flags
     }
     
-    fn param1( &self, text: &str, mtype: u32 ) -> OwEResult<OwMessageSend> {
-        let mut msg = OwMessageSend::new(self.flags,mtype) ;
-        if self.debug > 1 {
-            eprintln!( "Type {} with text {} being prepared for sending", OwMessageSend::message_name(mtype), text ) ;
-        }
-        msg.add_path( text ) ? ;
-        Ok(msg)
-    }
-    
     fn make_write( &self, text: &str, value: &[u8] ) -> OwEResult<OwMessageSend> {
-        let mut msg = OwMessageSend::new(self.flags,OwMessageSend::WRITE) ;
-        msg.add_path( text ) ? ;
-        msg.add_data( value ) ;
-        Ok(msg)
+        OwMessageSend::new( self.flags, OwMessageSend::WRITE, Some(text), Some(value) )
     }
-
     fn make_read( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::READ )
+        OwMessageSend::new( self.flags, OwMessageSend::READ, Some(text), None )
     }
     fn make_dir( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::DIR )
+        OwMessageSend::new( self.flags, OwMessageSend::DIR, Some(text), None )
     }
     fn make_size( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::SIZE )
+        OwMessageSend::new( self.flags, OwMessageSend::SIZE, Some(text), None )
     }
     fn make_present( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::PRESENT )
+        OwMessageSend::new( self.flags, OwMessageSend::PRESENT, Some(text), None )
     }
     fn make_dirall( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::DIRALL )
+        OwMessageSend::new( self.flags, OwMessageSend::DIRALL, Some(text), None )
     }
     fn make_get( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::GET )
+        OwMessageSend::new( self.flags, OwMessageSend::GET, Some(text), None )
     }
     fn make_dirallslash( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::DIRALLSLASH )
+        OwMessageSend::new( self.flags, OwMessageSend::DIRALLSLASH, Some(text), None )
     }
     fn make_getslash( &self, text: &str ) -> OwEResult<OwMessageSend> {
-        self.param1( text, OwMessageSend::GETSLASH )
+        OwMessageSend::new( self.flags, OwMessageSend::GETSLASH, Some(text), None )
     }
     
     fn send_get_single( &mut self, send: OwMessageSend ) -> OwEResult<OwMessageReceive> {
@@ -304,11 +291,11 @@ impl OwClient {
         // Set timeout
         self.set_timeout() ? ;
         let stream = match self.stream.stream.as_mut() {
-			Some(s) => s ,
+            Some(s) => s ,
             None => {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             },
-		} ;
+        } ;
         let rcv = OwMessageReceive::get_packet(stream,None) ? ;
         Ok(rcv)
     }
@@ -333,11 +320,11 @@ impl OwClient {
         self.set_timeout() ? ;
         
         let stream = match self.stream.stream.as_mut() {
-			Some(s) => s ,
+            Some(s) => s ,
             None => {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             },
-		} ;
+        } ;
         let mut full_rcv = OwMessageReceive::get_packet(stream,None) ?;
 
         if full_rcv.payload == 0 {
@@ -365,16 +352,7 @@ impl OwClient {
         Ok(())
     }
 
-    fn send_packet( &mut self, send: OwMessageSend ) -> OwEResult<()> {
-        let mut msg:Vec<u8> = 
-            [ send.version, send.payload, send.mtype, send.flags, send.size, send.offset ]
-            .iter()
-            .flat_map( |&u| u.to_be_bytes() )
-            .collect() ;
-        if send.payload > 0 {
-            msg.extend_from_slice(&send.content) ;
-        }
-
+    fn send_packet( &mut self, mut msg: OwMessageSend ) -> OwEResult<()> {
         // Write to network
         if self.debug > 1 {
             eprintln!("about to connect");
@@ -402,7 +380,9 @@ impl OwClient {
             // No persistence, make new connection
             self.connect() ? ;
         }
-        self.stream.stream.as_mut().unwrap().write_all( &msg ) ? ;
+        if let Some(stream) = &mut self.stream.stream {
+            msg.send(stream) ? ;
+        }
         Ok(())
     }
 
@@ -585,39 +565,29 @@ impl OwClient {
         )
         .collect()
     }
-}
-
-/// ### OwServer
-/// structure that manages this owserver
-/// ### Creation
-/// ```
-/// let mut owserver = OwServer::new("localhost.4304".to_string()) ;
-/// ```
-pub struct OwServer {
-	client: crate::OwClient,
-    listen_stream: TcpListener,
-}
     
-impl OwServer {
-    pub fn new( client: crate::OwClient, address: &str ) -> OwEResult<OwServer> {
-        Ok(OwServer {
-			client: client.clone(),
-            listen_stream: TcpListener::bind(address)?,
-        })
-    }
-    pub fn serve(&self) -> OwEResult<()> {
-        for stream in self.listen_stream.incoming() {
-            match stream {
-                Ok(s) => {
-                    let instance = OwServerInstance::new( self.client.clone(), s ) ;
-                    thread::spawn( move || {
-                        instance.handle_query() ;
-                    });
-                },
-                Err(e)=>{
-                    eprintln!("Bad server query {}",e);
-                },
+    /// ### listen
+    /// start an owserver (that forwards packets with some processing)
+    /// * Uses threads
+    pub fn listen( &self ) -> OwEResult<()> {
+        if let Some(address) = &self.listener {
+            let listen_stream = TcpListener::bind(address) ? ;
+            for stream in listen_stream.incoming() {
+                match stream {
+                    Ok(stream) => {
+                        let instance = OwServerInstance::new( self.clone(), stream ) ;
+                        thread::spawn( move || {
+                            instance.handle_query() ;
+                        });
+                    },
+                    Err(e) => {
+                        eprintln!("Bad server query connection. {}",e) ;
+                    },
+                }
             }
+        } else {
+            eprintln!("No --port address given.");
+            return Err(OwError::General("No address given to listen on (--port)".to_string() ) ) ;
         }
         Ok(())
     }
@@ -630,7 +600,7 @@ struct OwServerInstance {
 impl OwServerInstance {
     fn new(client: crate::OwClient, stream: TcpStream) -> OwServerInstance {
         OwServerInstance {
-			client,
+            client,
             stream,
         }
     }
@@ -645,7 +615,7 @@ impl OwServerInstance {
         }
         
         // get header
-		static HSIZE: usize = 24 ;
+        static HSIZE: usize = 24 ;
         let mut buffer: [u8; HSIZE ] = [ 0 ; HSIZE ];
 
     }

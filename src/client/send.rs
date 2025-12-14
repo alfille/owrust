@@ -37,6 +37,8 @@
 
 use std::ffi ;
 use std::str ;
+use std::net::TcpStream ;
+use std::io::{Read,Write} ;
 
 pub use crate::error::{OwEResult};
 
@@ -75,8 +77,8 @@ impl OwMessageSend {
     pub(super) const GETSLASH:    u32 = 10 ;
 
     /// Create a nominal message (to be modified)
-    pub(super) fn new(flag: u32, mtype: u32)-> OwMessageSend {
-        OwMessageSend {
+    pub(super) fn new(flag: u32, mtype: u32, path: Option<&str>, value: Option<&[u8]>)-> OwEResult<OwMessageSend> {
+        let mut msg = OwMessageSend {
             version: OwMessageSend::SENDVERSION,
             payload: 0,
             mtype,
@@ -84,7 +86,14 @@ impl OwMessageSend {
             size:    OwMessageSend::DEFAULTSIZE,
             offset:  0,
             content: [].to_vec(),
+        } ;
+        if let Some(p) = path {
+            msg.add_path( p ) ? ;
         }
+        if let Some(v) = value {
+            msg.add_data(v) ;
+        }
+        Ok(msg)
     }
 
     /// Name the message types
@@ -125,4 +134,25 @@ impl OwMessageSend {
         self.size = data.len() as u32 ;
         self.payload += self.size ;
     }
+
+    /// ### send
+    /// * Send rcv_message to owserver
+    /// * Converts header to network order
+    /// * includes payload
+    /// * Will include tokens when available 
+    pub(super) fn send( &mut self, stream: &mut TcpStream ) -> OwEResult<()> {
+        let mut msg:Vec<u8> = 
+            [ self.version, self.payload, self.mtype, self.flags, self.size, self.offset ]
+            .iter()
+            .flat_map( |&u| u.to_be_bytes() )
+            .collect() ;
+        if self.payload > 0 {
+            msg.extend_from_slice(&self.content) ;
+        }
+
+        // Write to network
+        stream.write_all( &msg ) ? ;
+        Ok(())
+    }
+
 }

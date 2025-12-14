@@ -101,23 +101,20 @@ impl OwMessageReceive {
             }
             // read tokens
             if (rcv.version & SERVERMESSAGE) == SERVERMESSAGE {
-				let toks = rcv.version & SERVERTOKENS ;
-				for _ in 0..toks {
-					let mut tok: Token = [0u8;16] ;
-					stream.read_exact( &mut tok ) ? ;
-					rcv.tokenlist.push(tok)
-				}
-			}
-			
-			// test token
-			match my_token {
-				Some(t) => if rcv.tokenlist.contains(&t) {
-					return Err(OwError::General("Loop in owserver topology".to_string())) ;
-					},
-				None => (),
-			}
+                let toks = rcv.version & SERVERTOKENS ;
+                for _ in 0..toks {
+                    let mut tok: Token = [0u8;16] ;
+                    stream.read_exact( &mut tok ) ? ;
+                    rcv.tokenlist.push(tok)
+                }
+            }
+            
+            // test token
+            if let Some(t) = my_token && rcv.tokenlist.contains(&t) {
+                return Err(OwError::General("Loop in owserver topology".to_string())) ;
+            }
 
-			// test ping message (ignore -- it's a keepalive)
+            // test ping message (ignore -- it's a keepalive)
             if (rcv.payload as i32) < 0 {
                 // ping
                 continue ;

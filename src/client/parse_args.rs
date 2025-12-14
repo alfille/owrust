@@ -27,7 +27,7 @@ Temperature scale
 Format serial number
   f(amily) i(d) c(hecksum
   -f, --format fi | f.i | fic | f.ic | fi.c | f.i.c
-
+  
 Display
   --dir    Add a directory separator (/) after directories
   --hex    Display values read in hexidecimal
@@ -144,6 +144,10 @@ Write a value to a 1-wire device field using owserver.
 {} [OPTIONS] <1-wire path>
 Read a directory or value from 1-wire (depending on the path) using owserver.
             ", p),
+            "owsnoop" => format!("\
+{} [OPTIONS] -p | --port address:port (e.g. localhost:14304)
+Inspect owserver messages as they pass through. Serves as an owserver intermediary.
+            ", p),
             &_ => format!("\
 {} [OPTIONS] <1-wire path>
 Read a virtual 1-wire directory from owserver.
@@ -158,7 +162,7 @@ Read a virtual 1-wire directory from owserver.
         owserver.debug += 1 ;
         eprintln!("Debuging level {}",owserver.debug);
     }
-
+    
     // Temperature
     if args.contains(["-C","--Celsius"]) {
         owserver.temperature = super::Temperature::CELSIUS ;
@@ -230,6 +234,9 @@ Read a virtual 1-wire directory from owserver.
     let s: Option<String> = args.opt_value_from_str(["-s","--server"]) ? ;
     owserver.owserver = s.unwrap_or(String::from("localhost:4304")) ;
 
+    // Listener
+    owserver.listener = args.opt_value_from_str(["-p","--port"]) ? ;
+
     let mut result: Vec<String> = Vec::new() ;
     for os in args.finish() {
         match os.into_string() {
@@ -286,10 +293,10 @@ mod tests {
     #[test]
     fn test_short_long() {
         for ts in [
-            ("Celsius",  super::OwClient::TEMPERATURE_C,),
-            ("Kelvin",   super::OwClient::TEMPERATURE_K,),
-            ("Farenheit",super::OwClient::TEMPERATURE_F,),
-            ("Rankine",  super::OwClient::TEMPERATURE_R,),
+            ("Celsius",  crate::OwClient::TEMPERATURE_C,),
+            ("Kelvin",   crate::OwClient::TEMPERATURE_K,),
+            ("Farenheit",crate::OwClient::TEMPERATURE_F,),
+            ("Rankine",  crate::OwClient::TEMPERATURE_R,),
             ] {
             let test = ts.0.to_string() ;        
             for t in [short(&test), long(&test)] {
@@ -305,14 +312,14 @@ mod tests {
     #[test]
     fn long_opt() {
         for ts in [
-            ("mbar", super::OwClient::PRESSURE_MBAR,),
-            ("mmhg", super::OwClient::PRESSURE_MMHG,),
-            ("inhg", super::OwClient::PRESSURE_INHG,),
-            ("atm",  super::OwClient::PRESSURE_ATM,),
-            ("pa",   super::OwClient::PRESSURE_PA,),
-            ("psi",  super::OwClient::PRESSURE_PSI,),
+            ("mbar", crate::OwClient::PRESSURE_MBAR,),
+            ("mmhg", crate::OwClient::PRESSURE_MMHG,),
+            ("inhg", crate::OwClient::PRESSURE_INHG,),
+            ("atm",  crate::OwClient::PRESSURE_ATM,),
+            ("pa",   crate::OwClient::PRESSURE_PA,),
+            ("psi",  crate::OwClient::PRESSURE_PSI,),
             
-            ("persist", super::OwClient::PERSISTENCE,),            
+            ("persist", crate::OwClient::PERSISTENCE,),            
             ] {
             let test = ts.0.to_string() ;        
             for t in [long(&test)] {
@@ -328,10 +335,10 @@ mod tests {
     #[test]
     fn clone_temperature() {
         for ts in [
-            ("Celsius",  super::OwClient::TEMPERATURE_C,),
-            ("Kelvin",   super::OwClient::TEMPERATURE_K,),
-            ("Farenheit",super::OwClient::TEMPERATURE_F,),
-            ("Rankine",  super::OwClient::TEMPERATURE_R,),
+            ("Celsius",  crate::OwClient::TEMPERATURE_C,),
+            ("Kelvin",   crate::OwClient::TEMPERATURE_K,),
+            ("Farenheit",crate::OwClient::TEMPERATURE_F,),
+            ("Rankine",  crate::OwClient::TEMPERATURE_R,),
             ] {
             let test = ts.0.to_string() ;        
             for t in [short(&test), long(&test)] {
@@ -343,5 +350,26 @@ mod tests {
                 assert_eq!(result, ts.1);
             }
         }
+    }
+    #[test]
+    fn noport_test() {
+        let args: Vec<&str> = vec![];
+        let owserver = crate::new() ;
+        let mut owserver2 = modified_client( &owserver, args ).unwrap() ;
+        assert_eq!(owserver2.listener,None);
+    }
+    #[test]
+    fn port_test() {
+        let args: Vec<&str> = vec!["-p", "localhost:14304"];
+        let owserver = crate::new() ;
+        let mut owserver2 = modified_client( &owserver, args ).unwrap() ;
+        assert_eq!(owserver2.listener,Some("localhost:14304".to_string()));
+    }
+    #[test]
+    fn port2_test() {
+        let args: Vec<&str> = vec!["--port", "localhost:14304"];
+        let owserver = crate::new() ;
+        let mut owserver2 = modified_client( &owserver, args ).unwrap() ;
+        assert_eq!(owserver2.listener,Some("localhost:14304".to_string()));
     }
 }
