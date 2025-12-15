@@ -135,6 +135,12 @@ impl OwMessageReceive {
     }
 }
 
+/// ### PrintMessage trait
+/// Trait for displaying content of "snooped" messages
+/// * covers OwMessageReceive and OwMessageSend
+/// * uses "getter" functions for struct fields
+/// * able to navigate the different interpretation of the ret / mtype field
+/// * could be used for client messages
 pub trait PrintMessage {
     // Header
     fn receive_title(&self) -> String;

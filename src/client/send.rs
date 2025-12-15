@@ -180,7 +180,7 @@ impl crate::client::receive::PrintMessage for OwMessageSend {
         self.tokenlist
     }
     */
-    fn line2( &self ) -> String {
+    fn line2(&self) -> String {
         self.alt_line2()
     }
 }
