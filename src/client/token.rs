@@ -1,4 +1,4 @@
-//! **owrust** Rust library interfaces with owserver to use 1-wire devices 
+//! **owrust** Rust library interfaces with owserver to use 1-wire devices
 //!
 //! This is a tool in the 1-wire file system **OWFS**
 //!
@@ -25,7 +25,7 @@
 //! let paths = parse_args::command_line( &mut owserver ) ;
 //!   // Call any of the OwClient functions like dir, read, write,...
 //!   ```
-  
+
 // owrust project
 // https://github.com/alfille/owrust
 //
@@ -35,34 +35,39 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use std::time::{SystemTime, UNIX_EPOCH} ;
-use md5::{Md5,Digest} ;
-use rand::rngs::OsRng;
+use md5::{Digest, Md5};
 use rand::RngCore;
+use rand::rngs::OsRng;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::client::Token ;
+use crate::client::Token;
 
-pub (super) fn make_token() -> Token {
-    let mut buffer: Vec<u8> = Vec::new() ;
+pub(super) fn make_token() -> Token {
+    let mut buffer: Vec<u8> = Vec::new();
 
     // add time
-    buffer.extend_from_slice( &SystemTime::now().duration_since(UNIX_EPOCH).unwrap().subsec_nanos().to_le_bytes() ) ;
-    
+    buffer.extend_from_slice(
+        &SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
+            .to_le_bytes(),
+    );
+
     // add pid
     buffer.extend_from_slice(&std::process::id().to_le_bytes());
-    
+
     // add random salt
-    let mut salt = [0u8;16];
-    OsRng.fill_bytes(&mut salt );
-    buffer.extend_from_slice( &salt ) ;
-    
+    let mut salt = [0u8; 16];
+    OsRng.fill_bytes(&mut salt);
+    buffer.extend_from_slice(&salt);
+
     // MD5 hash
-    let mut hasher = Md5::new() ;
-    hasher.update(&buffer) ;
-    
+    let mut hasher = Md5::new();
+    hasher.update(&buffer);
+
     // return 16 bytes
-    let mut ret: Token = [0u8;16] ;
-    ret.copy_from_slice(&hasher.finalize() ) ;
+    let mut ret: Token = [0u8; 16];
+    ret.copy_from_slice(&hasher.finalize());
     ret
 }
-    

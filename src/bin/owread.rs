@@ -1,7 +1,7 @@
 //! **owread** -- _Rust version_
 //!
 //! ## Read a value from owserver ( from a 1-wire device )
-//! 
+//!
 //! **owread** is a tool in the 1-wire file system **OWFS**
 //!
 //! This Rust version of **owread** is part of **owrust** -- the _Rust language_ OWFS programs
@@ -37,14 +37,14 @@
 //! * `owread` is a command line program
 //! * output to stdout
 //! * errors to stderr
-//! 
+//!
 //! ## EXAMPLE
 //! Read a temperature
 //! ```
 //! owread /10.67C6697351FF/temperature
 //! ```
 //! ```text
-//!     85.7961 
+//!     85.7961
 //! ```
 //! Read temperature in hex
 //! ```
@@ -64,46 +64,43 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust::parse_args ;
+use owrust::parse_args;
 
 fn main() {
-    let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new(); // create structure for owserver communication
 
     // configure and get paths
-    match parse_args::command_line( &mut owserver ) {
-        
-        Ok( paths ) => {
+    match parse_args::command_line(&mut owserver) {
+        Ok(paths) => {
             if paths.is_empty() {
                 // No path
-                eprintln!( "No 1-wire path, so no readings" ) ;
+                eprintln!("No 1-wire path, so no readings");
             } else {
                 // for each pathon command line
                 for path in paths.into_iter() {
-                    from_path( &mut owserver, path ) ;
+                    from_path(&mut owserver, path);
                 }
             }
         }
         Err(e) => {
-            eprintln!("owread trouble {}",e);
-        },
+            eprintln!("owread trouble {}", e);
+        }
     }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path( owserver: &mut owrust::OwClient, path: String ) {
+fn from_path(owserver: &mut owrust::OwClient, path: String) {
     match owserver.read(&path) {
-        Ok(values) => {
-            match owserver.show_result(values) {
-                Ok(s) => {
-                    println!("{}",s);
-                },
-                Err(e) => {
-                    eprintln!("Reading error {}",e) ;
-                },
+        Ok(values) => match owserver.show_result(values) {
+            Ok(s) => {
+                println!("{}", s);
             }
-        }
+            Err(e) => {
+                eprintln!("Reading error {}", e);
+            }
+        },
         Err(e) => {
-            eprintln!("Trouble with path {} Error {}",path,e);
+            eprintln!("Trouble with path {} Error {}", path, e);
         }
     }
-}   
+}

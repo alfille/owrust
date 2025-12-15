@@ -1,4 +1,4 @@
-//! **owrust** Rust library interfaces with owserver to use 1-wire devices 
+//! **owrust** Rust library interfaces with owserver to use 1-wire devices
 //!
 //! This is a tool in the 1-wire file system **OWFS**
 //!
@@ -25,7 +25,7 @@
 //! let paths = parse_args::command_line( &mut owserver ) ;
 //!   // Call any of the OwClient functions like dir, read, write,...
 //!   ```
-  
+
 // owrust project
 // https://github.com/alfille/owrust
 //
@@ -35,9 +35,9 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-pub mod client ;
-pub use crate::client::{OwClient,new} ;
-pub use crate::client::parse_args ;
+pub mod client;
+pub use crate::client::parse_args;
+pub use crate::client::{OwClient, new};
 
-pub mod error ;
-pub use error::{OwError,OwEResult};
+pub mod error;
+pub use error::{OwEResult, OwError};

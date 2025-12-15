@@ -1,7 +1,7 @@
 //! **owpresent** -- _Rust version_
 //!
 //! ## Does a file exiss (devise exists) on owserver
-//! 
+//!
 //! **owpresent** is a tool in the 1-wire file system **OWFS**
 //!
 //! This Rust version of **owpresent** is part of **owrust** -- the _Rust language_ OWFS programs
@@ -33,7 +33,7 @@
 //!   * `1` if present
 //!   * `0` if not present
 //! * errors to stderr
-//! 
+//!
 //! ## EXAMPLE
 //! Test presence of a device
 //! ```
@@ -67,33 +67,32 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust::parse_args ;
+use owrust::parse_args;
 
 fn main() {
-    let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new(); // create structure for owserver communication
 
     // configure and get paths
-    match parse_args::command_line( &mut owserver ) {
-        
-        Ok( paths ) => {
+    match parse_args::command_line(&mut owserver) {
+        Ok(paths) => {
             if paths.is_empty() {
                 // No path -- assume root
-                from_path( &mut owserver, "/".to_string() ) ;
+                from_path(&mut owserver, "/".to_string());
             } else {
                 // for each pathon command line
                 for path in paths.into_iter() {
-                    from_path( &mut owserver, path ) ;
+                    from_path(&mut owserver, path);
                 }
             }
         }
         Err(e) => {
-            eprintln!("owpresent trouble {}",e);
-        },
+            eprintln!("owpresent trouble {}", e);
+        }
     }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path( owserver: &mut owrust::OwClient, path: String ) {
+fn from_path(owserver: &mut owrust::OwClient, path: String) {
     match owserver.present(&path) {
         Ok(values) => {
             if values {
@@ -103,7 +102,7 @@ fn from_path( owserver: &mut owrust::OwClient, path: String ) {
             }
         }
         Err(e) => {
-            eprintln!("Trouble with path {} Error {}",path,e);
+            eprintln!("Trouble with path {} Error {}", path, e);
         }
     }
-}   
+}

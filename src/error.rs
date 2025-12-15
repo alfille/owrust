@@ -1,4 +1,4 @@
-//! **owrust** Rust library interfaces with owserver to use 1-wire devices 
+//! **owrust** Rust library interfaces with owserver to use 1-wire devices
 //!
 //! This is a tool in the 1-wire file system **OWFS**
 //!
@@ -25,7 +25,7 @@
 //! let paths = parse_args::command_line( &mut owserver ) ;
 //!   // Call any of the OwClient functions like dir, read, write,...
 //!   ```
-  
+
 // owrust project
 // https://github.com/alfille/owrust
 //
@@ -35,16 +35,16 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use std::fmt ;
+use std::fmt;
 
 /// ### OwEResult
 ///
 /// type alias for Result<_,OwError> to reduce boilerplate
 /// `OwEResult<String>` is equivalent to `Result<String,OwError>`
-pub type OwEResult<T> = std::result::Result<T,OwError> ;
+pub type OwEResult<T> = std::result::Result<T, OwError>;
 
 #[derive(Debug)]
-/// ### OwError 
+/// ### OwError
 /// the **owrust**-specific error type
 ///
 /// details field is a String with error details
@@ -61,18 +61,18 @@ pub enum OwError {
 impl fmt::Display for OwError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OwError::General(e) => write!(f,"An error: {}",e),
-            OwError::Input(e) => write!(f,"Input error: {}",e),
-            OwError::Output(e) => write!(f,"Output error: {}",e),
-            OwError::Io(e) => write!(f,"IO error: {}",e),
-            OwError::Args(e) => write!(f,"Args error: {}",e),
-            OwError::Text(e) => write!(f,"Text conversion error: {}",e),
-            OwError::Numeric(e) => write!(f,"Non-numeric characters: {}",e),
+            OwError::General(e) => write!(f, "An error: {}", e),
+            OwError::Input(e) => write!(f, "Input error: {}", e),
+            OwError::Output(e) => write!(f, "Output error: {}", e),
+            OwError::Io(e) => write!(f, "IO error: {}", e),
+            OwError::Args(e) => write!(f, "Args error: {}", e),
+            OwError::Text(e) => write!(f, "Text conversion error: {}", e),
+            OwError::Numeric(e) => write!(f, "Non-numeric characters: {}", e),
         }
     }
 }
 impl std::error::Error for OwError {
-    fn source( &self ) -> Option<&(dyn std::error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             OwError::Io(e) => Some(e),
             OwError::Args(e) => Some(e),
@@ -81,13 +81,11 @@ impl std::error::Error for OwError {
     }
 }
 
-use std::io;
 use std::convert::From;
+use std::io;
 impl From<OwError> for io::Error {
     fn from(error: OwError) -> Self {
-        io::Error::other(
-            error.to_string()
-        )
+        io::Error::other(error.to_string())
     }
 }
 impl From<std::io::Error> for OwError {
@@ -115,4 +113,3 @@ impl From<std::ffi::NulError> for OwError {
         OwError::Text("Nul Error".into())
     }
 }
-

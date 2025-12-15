@@ -2,7 +2,7 @@
 //!
 //! ## Read a value or directory from owserver
 //! Combines the functions of **owread** and **owdir**
-//! 
+//!
 //! **owget** is a tool in the 1-wire file system **OWFS**
 //!
 //! This Rust version of **owdir** is part of **owrust** -- the _Rust language_ OWFS programs
@@ -23,7 +23,7 @@
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
 //! * `--dir`      Add trailing **/** for directory elements
-//! * `--bare`     Suppress non-device entries 
+//! * `--bare`     Suppress non-device entries
 //! * `--hex       show the value in hexidecimal
 //! * `--size n    return only n bytes
 //! * `--offset m  start return at byte m
@@ -39,14 +39,14 @@
 //! * `owget` is a command line program
 //! * output to stdout
 //! * errors to stderr
-//! 
+//!
 //! ## EXAMPLE
 //! Read a temperature
 //! ```
 //! owget /10.67C6697351FF/temperature
 //! ```
 //! ```text
-//!     85.7961 
+//!     85.7961
 //! ```
 //! Get bare root directory
 //! ```
@@ -64,46 +64,45 @@
 // This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
-use owrust::parse_args ;
+use owrust::parse_args;
 
 fn main() {
-    let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new(); // create structure for owserver communication
 
     // configure and get paths
-    match parse_args::command_line( &mut owserver ) {
-        
-        Ok( paths ) => {
+    match parse_args::command_line(&mut owserver) {
+        Ok(paths) => {
             if paths.is_empty() {
                 // No path -- assume root
-                from_path( &mut owserver, "/".to_string() ) ;
+                from_path(&mut owserver, "/".to_string());
             } else {
                 // for each pathon command line
                 for path in paths.into_iter() {
-                    from_path( &mut owserver, path ) ;
+                    from_path(&mut owserver, path);
                 }
             }
         }
         Err(e) => {
-            eprintln!("owread trouble {}",e);
+            eprintln!("owread trouble {}", e);
         }
     }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path( owserver: &mut owrust::OwClient, path: String ) {
+fn from_path(owserver: &mut owrust::OwClient, path: String) {
     match owserver.get(&path) {
         Ok(value) => {
             match String::from_utf8(value) {
                 Ok(v) => {
-                    println!("{}",v) ;
-                },
+                    println!("{}", v);
+                }
                 Err(e) => {
-                    eprintln!("Unprintable string {}",e);
-                },
-            } ;
-        },
+                    eprintln!("Unprintable string {}", e);
+                }
+            };
+        }
         Err(e) => {
-            eprintln!("Trouble with path {} Error {}",path,e);
-        },
+            eprintln!("Trouble with path {} Error {}", path, e);
+        }
     }
-}   
+}

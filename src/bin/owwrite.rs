@@ -1,7 +1,7 @@
 //! **owwrite** -- _Rust version_
 //!
 //! ## Write a value to owserver ( to a specific 1-wire device file )
-//! 
+//!
 //! **owwrite** is a tool in the 1-wire file system **OWFS**
 //!
 //! This Rust version of **owwrite** is part of **owrust** -- the _Rust language_ OWFS programs
@@ -23,7 +23,7 @@
 //! ## PATH
 //! * 1-wire path to a file
 //! * No Default
-//! 
+//!
 //! ## VALUE
 //! * Text (a byte string)
 //! * Hexidecimal bytes ( e.g. `03A3FF` is a 3 byte value )
@@ -39,7 +39,7 @@
 //! * owserver must be running in a network-accessible location
 //! * `owwrite` is a command line program
 //! * errors to stderr
-//! 
+//!
 //! ## EXAMPLE
 //! Read, write and reread a temperature high limit
 //! ```
@@ -60,38 +60,41 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust::parse_args ;
+use owrust::parse_args;
 
 fn main() {
-    let mut owserver = owrust::new() ; // create structure for owserver communication
+    let mut owserver = owrust::new(); // create structure for owserver communication
 
     // configure and get paths
-    match parse_args::command_line( &mut owserver ) {
-        Ok( paths ) => {
+    match parse_args::command_line(&mut owserver) {
+        Ok(paths) => {
             if paths.is_empty() {
                 // No path
-                eprintln!( "Not enough arguments" ) ;
-            } else if ! paths.len().is_multiple_of(2) {
-                eprintln!("Path and value not paired") ;
+                eprintln!("Not enough arguments");
+            } else if !paths.len().is_multiple_of(2) {
+                eprintln!("Path and value not paired");
             } else {
                 // for each path/value pair in command line
                 for chunk in paths.chunks(2) {
-                    from_path( &mut owserver, &chunk[0], &chunk[1] ) ;
+                    from_path(&mut owserver, &chunk[0], &chunk[1]);
                 }
             }
         }
         Err(e) => {
-            eprintln!("owread trouble {}",e);
-        },
+            eprintln!("owread trouble {}", e);
+        }
     }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path( owserver: &mut owrust::OwClient, path: &String, value: &String ) {
-    match owserver.write( path, value.as_bytes() ) {
+fn from_path(owserver: &mut owrust::OwClient, path: &String, value: &String) {
+    match owserver.write(path, value.as_bytes()) {
         Ok(_) => (),
         Err(e) => {
-            eprintln!("Trouble with write -- path {} value {} Error {}",path, value, e);
-        },
+            eprintln!(
+                "Trouble with write -- path {} value {} Error {}",
+                path, value, e
+            );
+        }
     }
-}   
+}
