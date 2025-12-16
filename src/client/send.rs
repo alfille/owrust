@@ -100,6 +100,8 @@ impl OwMessageSend {
         }
         Ok(msg)
     }
+    
+//    pub(super) relay( crate::client::OwMessageReceive 
 
     /// first element of content and update payload length
     /// * should be null ended string or nothing
@@ -151,9 +153,6 @@ impl OwMessageSend {
 }
 
 impl crate::client::receive::PrintMessage for OwMessageSend {
-    fn receive_title(&self) -> String {
-        "Return to owserver ".to_string()
-    }
     fn version(&self) -> u32 {
         self.version
     }

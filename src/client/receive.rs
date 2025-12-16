@@ -71,13 +71,13 @@ impl OwMessageReceive {
             tokenlist: [].to_vec(),
         }
     }
-    pub(super) fn tell(&self) {
+/*    pub(super) fn tell(&self) {
         eprintln!(
             "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",
             self.version, self.payload, self.ret, self.flags, self.size, self.offset
         );
     }
-
+*/
     /// ### get_packet
     /// Get a message from the network and parse it:
     /// * read header ( 6 words), translated from network order
@@ -133,6 +133,16 @@ impl OwMessageReceive {
             return Ok(rcv);
         }
     }
+    pub fn add_token( &mut self, my_token: Option<Token>) {
+        let toks = match self.version & SERVERMESSAGE {
+            SERVERMESSAGE => self.version & SERVERTOKENS,
+            _ => 0,
+        } ;
+        if let Some(token)=my_token {
+            self.version = SERVERMESSAGE | (toks+1) ;
+            self.tokenlist.push(token) ;
+        }
+    }
 }
 
 /// ### PrintMessage trait
@@ -142,8 +152,6 @@ impl OwMessageReceive {
 /// * able to navigate the different interpretation of the ret / mtype field
 /// * could be used for client messages
 pub trait PrintMessage {
-    // Header
-    fn receive_title(&self) -> String;
     // Getters
     fn version(&self) -> u32;
     fn flags(&self) -> u32;
@@ -165,16 +173,16 @@ pub trait PrintMessage {
     /// * message is from a client
     /// * program is functioning as a server
     /// * typically to show messages and forward them unchanged
-    fn print_all(&self) {
-        println!("{}", self.line1());
+    fn print_all(&self, title: String) {
+        println!("{} {}", title, self.line1());
         println!("{}", self.line2());
+        println!("Flags: {}",crate::client::OwClient::flag_string(self.flags()));
         println!("{}", self.line3());
     }
 
     fn line1(&self) -> String {
         format!(
-            "{} message. Version: {}",
-            self.receive_title(),
+            " Version: {}",
             self.string_version()
         )
     }
@@ -186,8 +194,7 @@ pub trait PrintMessage {
     }
     fn line3(&self) -> String {
         format!(
-            "Flags:{} Payload:{} Size:{} Offset:{}",
-            self.string_flags(),
+            "Payload:{} Size:{} Offset:{}",
             self.string_payload(),
             self.string_size(),
             self.string_offset()
@@ -220,9 +227,6 @@ pub trait PrintMessage {
     fn string_ret(&self) -> String {
         format!("{}", self.ret())
     }
-    fn string_flags(&self) -> String {
-        format!("{:X}", self.flags())
-    }
     fn string_type(&self) -> String {
         match self.mtype() {
             OwMessageSend::NOP => "NOP".to_string(),
@@ -253,9 +257,6 @@ pub trait PrintMessage {
 }
 
 impl PrintMessage for OwMessageReceive {
-    fn receive_title(&self) -> String {
-        "INCOMING from owserver ".to_string()
-    }
     fn version(&self) -> u32 {
         self.version
     }

@@ -157,11 +157,13 @@ impl OwClient {
     const FORMAT_F_IC: u32 = 0x03000000;
     const FORMAT_FI_C: u32 = 0x04000000;
     const FORMAT_FIC: u32 = 0x05000000;
+    const FORMAT_MASK: u32 = 0x07000000;
     // -- Temperature flags (mutually exclusive)
     const TEMPERATURE_C: u32 = 0x00000000;
     const TEMPERATURE_F: u32 = 0x00010000;
     const TEMPERATURE_K: u32 = 0x00020000;
-    const TEMPERATURE_R: u32 = 0x00030000;
+    const TEMPERATURE_R: u32 = 0x00030000;    
+    const TEMPERATURE_MASK: u32 = 0x00030000;    
     // -- Pressure flags (mutually exclusive)
     const PRESSURE_MBAR: u32 = 0x00000000;
     const PRESSURE_ATM: u32 = 0x00040000;
@@ -169,12 +171,15 @@ impl OwClient {
     const PRESSURE_INHG: u32 = 0x000C0000;
     const PRESSURE_PSI: u32 = 0x00100000;
     const PRESSURE_PA: u32 = 0x00140000;
+    const PRESSURE_MASK: u32 = 0x001F0000;
     // -- Other independent flags
     #[allow(unused)]
     const OWNET_FLAG: u32 = 0x00000100;
 
     #[allow(unused)]
     const UNCACHED: u32 = 0x00000020;
+    
+    
 
     #[allow(unused)]
     const SAFEMODE: u32 = 0x00000010;
@@ -186,6 +191,59 @@ impl OwClient {
 
     #[allow(unused)]
     const BUS_RET: u32 = 0x00000002;
+
+    pub fn flag_string( flag: u32 ) -> String {
+        [
+            match flag & OwClient::TEMPERATURE_MASK {
+                OwClient::TEMPERATURE_C => "C", 
+                OwClient::TEMPERATURE_F => "F", 
+                OwClient::TEMPERATURE_K => "K", 
+                _ => "R",
+            }, 
+            match flag & OwClient::PRESSURE_MASK {
+                OwClient::PRESSURE_MBAR => "mbar", 
+                OwClient::PRESSURE_MMHG => "mmHg", 
+                OwClient::PRESSURE_INHG => "inHg", 
+                OwClient::PRESSURE_PA => "pa",
+                OwClient::PRESSURE_ATM => "atm",
+                _ => "psi",
+            },
+            match flag & OwClient::FORMAT_MASK {
+                OwClient::FORMAT_F_I => "f.i",
+                OwClient::FORMAT_FI => "fi",
+                OwClient::FORMAT_F_I_C =>"f.i.c",
+                OwClient::FORMAT_F_IC =>"f.ic",
+                OwClient::FORMAT_FI_C => "fi.c",
+                _ => "fic",
+            },
+            match flag & OwClient::OWNET_FLAG {
+                0 => "",
+                _ => "net",
+            },
+            match flag & OwClient::UNCACHED {
+                0 => "",
+                _ => "uncache",
+            },
+            match flag & OwClient::SAFEMODE {
+                0 => "",
+                _ => "safe",
+            },
+            match flag & OwClient::ALIAS {
+                0 => "",
+                _ => "alias",
+            },
+            match flag & OwClient::PERSISTENCE {
+                0 => "",
+                _ => "persist",
+            },
+            match flag & OwClient::BUS_RET {
+                0 => "",
+                _ => "bus_ret",
+            },
+        ]
+        .join(" ")
+        .to_string()
+    }
 
     fn new() -> Self {
         let mut owc = OwClient {
@@ -621,9 +679,13 @@ impl OwServerInstance {
             }
         }
 
-        // get header
-        static HSIZE: usize = 24;
-        let mut buffer: [u8; HSIZE] = [0; HSIZE];
+        let mut rcv = match OwMessageReceive::get_packet( &self.stream, Some(self.client.token) ) {
+            Ok(r)=>r,
+            Err(e)=>{
+                eprintln!("Could not read a packet. {}",e);
+                return;
+            },
+        };
     }
 }
 
