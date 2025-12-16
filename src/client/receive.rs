@@ -150,7 +150,12 @@ impl OwMessageReceive {
 /// * covers OwMessageReceive and OwMessageSend
 /// * uses "getter" functions for struct fields
 /// * able to navigate the different interpretation of the ret / mtype field
-/// * could be used for client messages
+/// * 4 lines
+///   * Title and version
+///   * Message type or return code and contents
+///   * Flag details
+///   * Size and offset
+/// * could also be used for client messages
 pub trait PrintMessage {
     // Getters
     fn version(&self) -> u32;
@@ -169,10 +174,6 @@ pub trait PrintMessage {
 
     /// ### print_all
     /// Shows message contents
-    /// * connection from a listener port
-    /// * message is from a client
-    /// * program is functioning as a server
-    /// * typically to show messages and forward them unchanged
     fn print_all(&self, title: String) {
         println!("{} {}", title, self.line1());
         println!("{}", self.line2());

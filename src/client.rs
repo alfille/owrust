@@ -192,6 +192,15 @@ impl OwClient {
     #[allow(unused)]
     const BUS_RET: u32 = 0x00000002;
 
+    /// ### flag_string
+    /// Create a 1-line summary of the owserver message flags in a message
+    /// * Temerature (C|K|F|R)
+    /// * Pressure (mbar | mmHg | inHg | pa | atm | psi )
+    /// * OwNet (net)
+    /// * Uncached (uncache)
+    /// * Safemode (safe)
+    /// * Alias (alias)
+    /// * Bus_Ret (bus)
     pub fn flag_string( flag: u32 ) -> String {
         [
             match flag & OwClient::TEMPERATURE_MASK {
@@ -238,7 +247,7 @@ impl OwClient {
             },
             match flag & OwClient::BUS_RET {
                 0 => "",
-                _ => "bus_ret",
+                _ => "bus",
             },
         ]
         .join(" ")
