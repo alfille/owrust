@@ -87,7 +87,7 @@ fn main() {
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path(owserver: &mut owrust::OwClient, path: &String, value: &String) {
+fn from_path(owserver: &mut owrust::OwMessage, path: &String, value: &String) {
     match owserver.write(path, value.as_bytes()) {
         Ok(_) => (),
         Err(e) => {

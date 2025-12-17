@@ -12,7 +12,7 @@
 //!
 //! Supported operations are read, write, dir, present and size, with some variations
 //!
-//! The main struct is OwClient which holds all the configuration information.
+//! The main struct is OwMessage which holds all the configuration information.
 //! Typically it is populated by the command line or configuration files
 //!
 //! ## EXAMPLES
@@ -20,10 +20,10 @@
 //! use owrust ; // basic library
 //! use owrust::parse_args ; // configure from command line, file or OsString
 //!
-//! let mut owserver = owrust::new() ; // create an OwClient struct
+//! let mut owserver = owrust::new() ; // create an OwMessage struct
 //!   // configure from command line and get 1-wire paths
 //! let paths = parse_args::command_line( &mut owserver ) ;
-//!   // Call any of the OwClient functions like dir, read, write,...
+//!   // Call any of the OwMessage functions like dir, read, write,...
 //!   ```
 
 // owrust project
@@ -42,12 +42,12 @@ use std::str;
 
 pub use crate::error::OwEResult;
 
-/// ### OwMessageSend
+/// ### OwQuery
 /// message constructed to send to owserver
 /// * 24 byte header (6 32-bit integers)
 /// * contents (C-string)
 /// * needs to be converted to network-endian format before sending
-pub(super) struct OwMessageSend {
+pub(super) struct OwQuery {
     pub(super) version: u32,
     pub(super) payload: u32,
     pub(super) mtype: u32,
@@ -57,7 +57,7 @@ pub(super) struct OwMessageSend {
     pub(super) content: Vec<u8>,
 }
 
-impl OwMessageSend {
+impl OwQuery {
     // Default owserver version (to owserver)
     const SENDVERSION: u32 = 0;
 
@@ -82,13 +82,13 @@ impl OwMessageSend {
         mtype: u32,
         path: Option<&str>,
         value: Option<&[u8]>,
-    ) -> OwEResult<OwMessageSend> {
-        let mut msg = OwMessageSend {
-            version: OwMessageSend::SENDVERSION,
+    ) -> OwEResult<OwQuery> {
+        let mut msg = OwQuery {
+            version: OwQuery::SENDVERSION,
             payload: 0,
             mtype,
             flags: flag,
-            size: OwMessageSend::DEFAULTSIZE,
+            size: OwQuery::DEFAULTSIZE,
             offset: 0,
             content: [].to_vec(),
         };
@@ -101,7 +101,7 @@ impl OwMessageSend {
         Ok(msg)
     }
     
-//    pub(super) relay( crate::client::OwMessageReceive 
+//    pub(super) relay( crate::message::OwResponse 
 
     /// first element of content and update payload length
     /// * should be null ended string or nothing
@@ -152,7 +152,7 @@ impl OwMessageSend {
     }
 }
 
-impl crate::client::receive::PrintMessage for OwMessageSend {
+impl crate::message::receive::PrintMessage for OwQuery {
     fn version(&self) -> u32 {
         self.version
     }

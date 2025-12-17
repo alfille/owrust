@@ -12,7 +12,7 @@
 //!
 //! Supported operations are read, write, dir, present and size, with some variations
 //!
-//! The main struct is OwClient which holds all the configuration information.
+//! The main struct is OwMessage which holds all the configuration information.
 //! Typically it is populated by the command line or configuration files
 //!
 //! ## EXAMPLES
@@ -20,10 +20,10 @@
 //! use owrust ; // basic library
 //! use owrust::parse_args ; // configure from command line, file or OsString
 //!
-//! let mut owserver = owrust::new() ; // create an OwClient struct
+//! let mut owserver = owrust::new() ; // create an OwMessage struct
 //!   // configure from command line and get 1-wire paths
 //! let paths = parse_args::command_line( &mut owserver ) ;
-//!   // Call any of the OwClient functions like dir, read, write,...
+//!   // Call any of the OwMessage functions like dir, read, write,...
 //!   ```
 
 // owrust project
@@ -35,8 +35,8 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use crate::client::OwMessageSend;
-use crate::client::Token;
+use crate::message::OwQuery;
+use crate::message::Token;
 pub use crate::error::{OwEResult, OwError};
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -46,7 +46,7 @@ const SERVERTOKENS: u32 = 0xFFFF;
 
 /// message received back from owserver
 /// * header (24 bytes) and content
-pub(super) struct OwMessageReceive {
+pub(super) struct OwResponse {
     pub(super) version: u32,
     pub(super) payload: u32,
     pub(super) ret: i32,
@@ -56,11 +56,11 @@ pub(super) struct OwMessageReceive {
     pub(super) content: Vec<u8>,
     pub(super) tokenlist: Vec<Token>,
 }
-impl OwMessageReceive {
+impl OwResponse {
     const HSIZE: usize = 24;
     /// Take first 24 bytes of buffer to fill header
-    pub(super) fn new(buffer: [u8; OwMessageReceive::HSIZE]) -> Self {
-        OwMessageReceive {
+    pub(super) fn new(buffer: [u8; OwResponse::HSIZE]) -> Self {
+        OwResponse {
             version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
             payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
             ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
@@ -88,7 +88,7 @@ impl OwMessageReceive {
     pub fn get_packet(
         stream: &mut TcpStream,
         my_token: Option<Token>,
-    ) -> OwEResult<OwMessageReceive> {
+    ) -> OwEResult<OwResponse> {
         // get a single non-ping message.
         // May need multiple for directories
         static HSIZE: usize = 24;
@@ -96,7 +96,7 @@ impl OwMessageReceive {
 
         loop {
             stream.read_exact(&mut buffer)?;
-            let mut rcv = OwMessageReceive::new(buffer);
+            let mut rcv = OwResponse::new(buffer);
 
             // read payload
             if rcv.payload > 0 {
@@ -147,7 +147,7 @@ impl OwMessageReceive {
 
 /// ### PrintMessage trait
 /// Trait for displaying content of "snooped" messages
-/// * covers OwMessageReceive and OwMessageSend
+/// * covers OwResponse and OwQuery
 /// * uses "getter" functions for struct fields
 /// * able to navigate the different interpretation of the ret / mtype field
 /// * 4 lines
@@ -177,7 +177,7 @@ pub trait PrintMessage {
     fn print_all(&self, title: String) {
         println!("{} {}", title, self.line1());
         println!("{}", self.line2());
-        println!("Flags: {}",crate::client::OwClient::flag_string(self.flags()));
+        println!("Flags: {}",crate::message::OwMessage::flag_string(self.flags()));
         println!("{}", self.line3());
     }
 
@@ -230,19 +230,19 @@ pub trait PrintMessage {
     }
     fn string_type(&self) -> String {
         match self.mtype() {
-            OwMessageSend::NOP => "NOP".to_string(),
-            OwMessageSend::READ => format!("READ {}", self.string_path()),
-            OwMessageSend::WRITE => {
+            OwQuery::NOP => "NOP".to_string(),
+            OwQuery::READ => format!("READ {}", self.string_path()),
+            OwQuery::WRITE => {
                 let w = self.string_path_pair();
                 format!("WRITE {} => {}", w.0, w.1)
             }
-            OwMessageSend::DIR => format!("DIR {}", self.string_path()),
-            OwMessageSend::SIZE => "SIZE".to_string(),
-            OwMessageSend::PRESENT => "PRESENT".to_string(),
-            OwMessageSend::DIRALL => format!("DIRALL {}", self.string_path()),
-            OwMessageSend::GET => format!("GET {}", self.string_path()),
-            OwMessageSend::DIRALLSLASH => format!("DIRALLSLASH {}", self.string_path()),
-            OwMessageSend::GETSLASH => format!("GETSLASH {}", self.string_path()),
+            OwQuery::DIR => format!("DIR {}", self.string_path()),
+            OwQuery::SIZE => "SIZE".to_string(),
+            OwQuery::PRESENT => "PRESENT".to_string(),
+            OwQuery::DIRALL => format!("DIRALL {}", self.string_path()),
+            OwQuery::GET => format!("GET {}", self.string_path()),
+            OwQuery::DIRALLSLASH => format!("DIRALLSLASH {}", self.string_path()),
+            OwQuery::GETSLASH => format!("GETSLASH {}", self.string_path()),
             _ => format!("UNKNOWN message number {}", self.mtype()),
         }
     }
@@ -257,7 +257,7 @@ pub trait PrintMessage {
     }
 }
 
-impl PrintMessage for OwMessageReceive {
+impl PrintMessage for OwResponse {
     fn version(&self) -> u32 {
         self.version
     }

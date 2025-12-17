@@ -12,7 +12,7 @@
 //!
 //! Supported operations are read, write, dir, present and size, with some variations
 //!
-//! The main struct is OwClient which holds all the configuration information.
+//! The main struct is OwMessage which holds all the configuration information.
 //! Typically it is populated by the command line or configuration files
 //!
 //! ## EXAMPLES
@@ -20,10 +20,10 @@
 //! use owrust ; // basic library
 //! use owrust::parse_args ; // configure from command line, file or OsString
 //!
-//! let mut owserver = owrust::new() ; // create an OwClient struct
+//! let mut owserver = owrust::new() ; // create an OwMessage struct
 //!   // configure from command line and get 1-wire paths
 //! let paths = parse_args::command_line( &mut owserver ) ;
-//!   // Call any of the OwClient functions like dir, read, write,...
+//!   // Call any of the OwMessage functions like dir, read, write,...
 //!   ```
 
 // owrust project
@@ -42,10 +42,10 @@ use std::str;
 use std::time::Duration;
 
 mod receive;
-use receive::OwMessageReceive;
+use receive::OwResponse;
 
 mod send;
-use send::OwMessageSend;
+use send::OwQuery;
 
 pub use crate::error::{OwEResult, OwError};
 
@@ -57,11 +57,11 @@ mod token;
 use token::make_token;
 
 /// ### new
-/// Creates a new OwClient
+/// Creates a new OwMessage
 /// * configure flags and server address before using
-/// * use public OwClient methods to manage owserver communication
-pub fn new() -> OwClient {
-    OwClient::new()
+/// * use public OwMessage methods to manage owserver communication
+pub fn new() -> OwMessage {
+    OwMessage::new()
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -117,7 +117,7 @@ impl Clone for Stream {
 }
 
 #[derive(Debug, Clone)]
-/// ### OwClient
+/// ### OwMessage
 /// structure that manages the connection to owserver
 /// * Stores configuration settings
 /// * has public fuction for each message type to owserver
@@ -129,7 +129,7 @@ impl Clone for Stream {
 /// ```
 /// let mut owserver = owrust::new() ;
 /// ```
-pub struct OwClient {
+pub struct OwMessage {
     owserver: String,
     listener: Option<String>,
     token: Token,
@@ -148,7 +148,7 @@ pub struct OwClient {
     flags: u32,
 }
 
-impl OwClient {
+impl OwMessage {
     // Flag for types
     // -- Format flags (mutually exclusive)
     const FORMAT_F_I: u32 = 0x00000000;
@@ -203,49 +203,49 @@ impl OwClient {
     /// * Bus_Ret (bus)
     pub fn flag_string( flag: u32 ) -> String {
         [
-            match flag & OwClient::TEMPERATURE_MASK {
-                OwClient::TEMPERATURE_C => "C", 
-                OwClient::TEMPERATURE_F => "F", 
-                OwClient::TEMPERATURE_K => "K", 
+            match flag & OwMessage::TEMPERATURE_MASK {
+                OwMessage::TEMPERATURE_C => "C", 
+                OwMessage::TEMPERATURE_F => "F", 
+                OwMessage::TEMPERATURE_K => "K", 
                 _ => "R",
             }, 
-            match flag & OwClient::PRESSURE_MASK {
-                OwClient::PRESSURE_MBAR => "mbar", 
-                OwClient::PRESSURE_MMHG => "mmHg", 
-                OwClient::PRESSURE_INHG => "inHg", 
-                OwClient::PRESSURE_PA => "pa",
-                OwClient::PRESSURE_ATM => "atm",
+            match flag & OwMessage::PRESSURE_MASK {
+                OwMessage::PRESSURE_MBAR => "mbar", 
+                OwMessage::PRESSURE_MMHG => "mmHg", 
+                OwMessage::PRESSURE_INHG => "inHg", 
+                OwMessage::PRESSURE_PA => "pa",
+                OwMessage::PRESSURE_ATM => "atm",
                 _ => "psi",
             },
-            match flag & OwClient::FORMAT_MASK {
-                OwClient::FORMAT_F_I => "f.i",
-                OwClient::FORMAT_FI => "fi",
-                OwClient::FORMAT_F_I_C =>"f.i.c",
-                OwClient::FORMAT_F_IC =>"f.ic",
-                OwClient::FORMAT_FI_C => "fi.c",
+            match flag & OwMessage::FORMAT_MASK {
+                OwMessage::FORMAT_F_I => "f.i",
+                OwMessage::FORMAT_FI => "fi",
+                OwMessage::FORMAT_F_I_C =>"f.i.c",
+                OwMessage::FORMAT_F_IC =>"f.ic",
+                OwMessage::FORMAT_FI_C => "fi.c",
                 _ => "fic",
             },
-            match flag & OwClient::OWNET_FLAG {
+            match flag & OwMessage::OWNET_FLAG {
                 0 => "",
                 _ => "net",
             },
-            match flag & OwClient::UNCACHED {
+            match flag & OwMessage::UNCACHED {
                 0 => "",
                 _ => "uncache",
             },
-            match flag & OwClient::SAFEMODE {
+            match flag & OwMessage::SAFEMODE {
                 0 => "",
                 _ => "safe",
             },
-            match flag & OwClient::ALIAS {
+            match flag & OwMessage::ALIAS {
                 0 => "",
                 _ => "alias",
             },
-            match flag & OwClient::PERSISTENCE {
+            match flag & OwMessage::PERSISTENCE {
                 0 => "",
                 _ => "persist",
             },
-            match flag & OwClient::BUS_RET {
+            match flag & OwMessage::BUS_RET {
                 0 => "",
                 _ => "bus",
             },
@@ -255,7 +255,7 @@ impl OwClient {
     }
 
     fn new() -> Self {
-        let mut owc = OwClient {
+        let mut owc = OwMessage {
             owserver: String::from("localhost:4304"),
             listener: None,
             token: make_token(),
@@ -281,80 +281,80 @@ impl OwClient {
     pub fn make_flags(&mut self) {
         let mut flags = 0;
         if !self.bare {
-            flags |= OwClient::BUS_RET;
+            flags |= OwMessage::BUS_RET;
         }
         if self.persistence {
-            flags |= OwClient::PERSISTENCE;
+            flags |= OwMessage::PERSISTENCE;
         }
         flags |= match self.temperature {
-            Temperature::CELSIUS => OwClient::TEMPERATURE_C,
-            Temperature::FARENHEIT => OwClient::TEMPERATURE_F,
-            Temperature::KELVIN => OwClient::TEMPERATURE_K,
-            Temperature::RANKINE => OwClient::TEMPERATURE_R,
-            Temperature::DEFAULT => OwClient::TEMPERATURE_C,
+            Temperature::CELSIUS => OwMessage::TEMPERATURE_C,
+            Temperature::FARENHEIT => OwMessage::TEMPERATURE_F,
+            Temperature::KELVIN => OwMessage::TEMPERATURE_K,
+            Temperature::RANKINE => OwMessage::TEMPERATURE_R,
+            Temperature::DEFAULT => OwMessage::TEMPERATURE_C,
         };
 
         flags |= match self.pressure {
-            Pressure::MBAR => OwClient::PRESSURE_MBAR,
-            Pressure::MMHG => OwClient::PRESSURE_MMHG,
-            Pressure::INHG => OwClient::PRESSURE_INHG,
-            Pressure::ATM => OwClient::PRESSURE_ATM,
-            Pressure::PA => OwClient::PRESSURE_PA,
-            Pressure::PSI => OwClient::PRESSURE_PSI,
-            Pressure::DEFAULT => OwClient::PRESSURE_MBAR,
+            Pressure::MBAR => OwMessage::PRESSURE_MBAR,
+            Pressure::MMHG => OwMessage::PRESSURE_MMHG,
+            Pressure::INHG => OwMessage::PRESSURE_INHG,
+            Pressure::ATM => OwMessage::PRESSURE_ATM,
+            Pressure::PA => OwMessage::PRESSURE_PA,
+            Pressure::PSI => OwMessage::PRESSURE_PSI,
+            Pressure::DEFAULT => OwMessage::PRESSURE_MBAR,
         };
 
         flags |= match self.format {
-            Format::FI => OwClient::FORMAT_FI,
-            Format::FdI => OwClient::FORMAT_F_I,
-            Format::FIC => OwClient::FORMAT_FIC,
-            Format::FIdC => OwClient::FORMAT_FI_C,
-            Format::FdIC => OwClient::FORMAT_F_IC,
-            Format::FdIdC => OwClient::FORMAT_F_I_C,
-            Format::DEFAULT => OwClient::FORMAT_F_I,
+            Format::FI => OwMessage::FORMAT_FI,
+            Format::FdI => OwMessage::FORMAT_F_I,
+            Format::FIC => OwMessage::FORMAT_FIC,
+            Format::FIdC => OwMessage::FORMAT_FI_C,
+            Format::FdIC => OwMessage::FORMAT_F_IC,
+            Format::FdIdC => OwMessage::FORMAT_F_I_C,
+            Format::DEFAULT => OwMessage::FORMAT_F_I,
         };
         self.flags = flags
     }
 
-    fn make_write(&self, text: &str, value: &[u8]) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::WRITE, Some(text), Some(value))
+    fn make_write(&self, text: &str, value: &[u8]) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::WRITE, Some(text), Some(value))
     }
-    fn make_read(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::READ, Some(text), None)
+    fn make_read(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::READ, Some(text), None)
     }
-    fn make_dir(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::DIR, Some(text), None)
+    fn make_dir(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::DIR, Some(text), None)
     }
-    fn make_size(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::SIZE, Some(text), None)
+    fn make_size(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::SIZE, Some(text), None)
     }
-    fn make_present(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::PRESENT, Some(text), None)
+    fn make_present(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::PRESENT, Some(text), None)
     }
-    fn make_dirall(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::DIRALL, Some(text), None)
+    fn make_dirall(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::DIRALL, Some(text), None)
     }
-    fn make_get(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::GET, Some(text), None)
+    fn make_get(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::GET, Some(text), None)
     }
-    fn make_dirallslash(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::DIRALLSLASH, Some(text), None)
+    fn make_dirallslash(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::DIRALLSLASH, Some(text), None)
     }
-    fn make_getslash(&self, text: &str) -> OwEResult<OwMessageSend> {
-        OwMessageSend::new(self.flags, OwMessageSend::GETSLASH, Some(text), None)
+    fn make_getslash(&self, text: &str) -> OwEResult<OwQuery> {
+        OwQuery::new(self.flags, OwQuery::GETSLASH, Some(text), None)
     }
 
-    fn send_get_single(&mut self, send: OwMessageSend) -> OwEResult<OwMessageReceive> {
+    fn send_get_single(&mut self, send: OwQuery) -> OwEResult<OwResponse> {
         self.send_packet(send)?;
         self.get_msg_single()
     }
 
-    fn send_get_many(&mut self, send: OwMessageSend) -> OwEResult<OwMessageReceive> {
+    fn send_get_many(&mut self, send: OwQuery) -> OwEResult<OwResponse> {
         self.send_packet(send)?;
         self.get_msg_many()
     }
 
-    fn get_msg_single(&mut self) -> OwEResult<OwMessageReceive> {
+    fn get_msg_single(&mut self) -> OwEResult<OwResponse> {
         // Set timeout
         self.set_timeout()?;
         let stream = match self.stream.stream.as_mut() {
@@ -363,7 +363,7 @@ impl OwClient {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             }
         };
-        let rcv = OwMessageReceive::get_packet(stream, None)?;
+        let rcv = OwResponse::get_packet(stream, None)?;
         Ok(rcv)
     }
 
@@ -382,7 +382,7 @@ impl OwClient {
 
     // Loop through getting packets until payload empty
     // for directories
-    fn get_msg_many(&mut self) -> OwEResult<OwMessageReceive> {
+    fn get_msg_many(&mut self) -> OwEResult<OwResponse> {
         // Set timeout
         self.set_timeout()?;
 
@@ -392,7 +392,7 @@ impl OwClient {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             }
         };
-        let mut full_rcv = OwMessageReceive::get_packet(stream, None)?;
+        let mut full_rcv = OwResponse::get_packet(stream, None)?;
 
         if full_rcv.payload == 0 {
             return Ok(full_rcv);
@@ -400,7 +400,7 @@ impl OwClient {
 
         loop {
             // get more packets and add content to first one, adjusting payload size
-            let mut rcv = OwMessageReceive::get_packet(stream, None)?;
+            let mut rcv = OwResponse::get_packet(stream, None)?;
             if self.debug > 0 {
                 eprintln!("Another packet");
             }
@@ -419,7 +419,7 @@ impl OwClient {
         Ok(())
     }
 
-    fn send_packet(&mut self, mut msg: OwMessageSend) -> OwEResult<()> {
+    fn send_packet(&mut self, mut msg: OwQuery) -> OwEResult<()> {
         // Write to network
         if self.debug > 1 {
             eprintln!("about to connect");
@@ -456,7 +456,7 @@ impl OwClient {
     fn get_value(
         &mut self,
         path: &str,
-        f: fn(&OwClient, &str) -> OwEResult<OwMessageSend>,
+        f: fn(&OwMessage, &str) -> OwEResult<OwQuery>,
     ) -> OwEResult<Vec<u8>> {
         let msg = f(self, path)?;
         let rcv = self.send_get_single(msg)?;
@@ -474,7 +474,7 @@ impl OwClient {
     /// * returns a `Vec<u8>` or error
     /// * result can be displayed with **show_result**
     pub fn read(&mut self, path: &str) -> OwEResult<Vec<u8>> {
-        self.get_value(path, OwClient::make_read)
+        self.get_value(path, OwMessage::make_read)
     }
     /// ### write
     /// write a value to a 1-wire file
@@ -483,7 +483,7 @@ impl OwClient {
     ///   * (e.g. /10.112233445566/temperature)
     /// * returns () or error
     pub fn write(&mut self, path: &str, value: &[u8]) -> OwEResult<()> {
-        let msg = OwClient::make_write(self, path, value)?;
+        let msg = OwMessage::make_write(self, path, value)?;
         let rcv = self.send_get_single(msg)?;
         if rcv.ret == 0 {
             Ok(())
@@ -567,7 +567,7 @@ impl OwClient {
                 "type",
                 "bus",
             ];
-            s.retain(|&x| !prune_list.contains(&OwClient::basename(x).as_str()));
+            s.retain(|&x| !prune_list.contains(&OwMessage::basename(x).as_str()));
         }
         Ok(s.into_iter().map(String::from).collect())
     }
@@ -580,8 +580,8 @@ impl OwClient {
     /// * returns `Vec<String>` or error
     pub fn dirall(&mut self, path: &str) -> OwEResult<Vec<String>> {
         let mut d: Vec<u8> = match self.slash {
-            true => self.get_value(path, OwClient::make_dirallslash),
-            _ => self.get_value(path, OwClient::make_dirall),
+            true => self.get_value(path, OwMessage::make_dirallslash),
+            _ => self.get_value(path, OwMessage::make_dirall),
         }?;
         self.dirboth(&mut d)
     }
@@ -597,8 +597,8 @@ impl OwClient {
     /// * result can be displayed with **show_result**
     pub fn get(&mut self, path: &str) -> OwEResult<Vec<u8>> {
         match self.slash {
-            true => self.get_value(path, OwClient::make_getslash),
-            _ => self.get_value(path, OwClient::make_get),
+            true => self.get_value(path, OwMessage::make_getslash),
+            _ => self.get_value(path, OwMessage::make_get),
         }
     }
 
@@ -671,12 +671,12 @@ impl OwClient {
 }
 
 struct OwServerInstance {
-    client: crate::OwClient,
+    message: crate::OwMessage,
     stream: TcpStream,
 }
 impl OwServerInstance {
-    fn new(client: crate::OwClient, stream: TcpStream) -> OwServerInstance {
-        OwServerInstance { client, stream }
+    fn new(message: crate::OwMessage, stream: TcpStream) -> OwServerInstance {
+        OwServerInstance { message, stream }
     }
     fn handle_query(&self) {
         // Set timeout
@@ -688,7 +688,7 @@ impl OwServerInstance {
             }
         }
 
-        let mut rcv = match OwMessageReceive::get_packet( &self.stream, Some(self.client.token) ) {
+        let mut rcv = match OwResponse::get_packet( &self.stream, Some(self.message.token) ) {
             Ok(r)=>r,
             Err(e)=>{
                 eprintln!("Could not read a packet. {}",e);
@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn new_client() {
-        let owc = OwClient::new();
+        let owc = OwMessage::new();
         assert_eq!(owc.temperature, Temperature::DEFAULT);
         assert_eq!(owc.pressure, Pressure::DEFAULT);
         assert_eq!(owc.format, Format::DEFAULT);
@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn printable_test() {
-        let mut owc = OwClient::new();
+        let mut owc = OwMessage::new();
         // Regular
         owc.hex = false;
         let v: Vec<u8> = vec![72, 101, 108, 108, 111];
@@ -736,7 +736,7 @@ mod tests {
             ("/root/dir/basename.2.3", "basename".to_string()),
         ];
         for x in xs {
-            let s = OwClient::basename(x.0);
+            let s = OwMessage::basename(x.0);
             assert_eq!(s, x.1);
         }
     }

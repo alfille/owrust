@@ -12,7 +12,7 @@
 //!
 //! Supported operations are read, write, dir, present and size, with some variations
 //!
-//! The main struct is OwClient which holds all the configuration information.
+//! The main struct is OwMessage which holds all the configuration information.
 //! Typically it is populated by the command line or configuration files
 //!
 //! ## EXAMPLES
@@ -20,10 +20,10 @@
 //! use owrust ; // basic library
 //! use owrust::parse_args ; // configure from command line, file or OsString
 //!
-//! let mut owserver = owrust::new() ; // create an OwClient struct
+//! let mut owserver = owrust::new() ; // create an OwMessage struct
 //!   // configure from command line and get 1-wire paths
 //! let paths = parse_args::command_line( &mut owserver ) ;
-//!   // Call any of the OwClient functions like dir, read, write,...
+//!   // Call any of the OwMessage functions like dir, read, write,...
 //!   ```
 
 // owrust project

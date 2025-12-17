@@ -92,7 +92,7 @@ fn main() {
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
-fn from_path(owserver: &mut owrust::OwClient, path: String) {
+fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     match owserver.present(&path) {
         Ok(values) => {
             if values {

@@ -47,37 +47,37 @@ OTHER
 ";
 
 /// ### command_line
-/// * Argument OwClient structure (mutable)
+/// * Argument OwMessage structure (mutable)
 /// * Uses command line arguments as source
-/// * Uses flags to set OwClient configuration
-/// * Computes owserver protocol flag field in OwClient
+/// * Uses flags to set OwMessage configuration
+/// * Computes owserver protocol flag field in OwMessage
 /// * Returns all non-flags on command line (paths and values as required)
 /// ### Example
 /// ```
 /// use std::ffi::OsString;
 /// use pico_args::Arguments;
 /// use owrust::parse_args::command_line ;
-/// let mut owserver = owrust::new() ; // new OwClient structure
+/// let mut owserver = owrust::new() ; // new OwMessage structure
 /// let paths = command_line( &mut owserver ).expect("Bad configuration");
 /// ```
-pub fn command_line(owserver: &mut crate::OwClient) -> OwEResult<Vec<String>> {
+pub fn command_line(owserver: &mut crate::OwMessage) -> OwEResult<Vec<String>> {
     // normal path -- from environment
     let args = Arguments::from_env();
     parser(owserver, args)
 }
 
 /// ### vector_line
-/// * Argument OwClient structure (mutable)
+/// * Argument OwMessage structure (mutable)
 /// * Argument `Vec<String>` instead of command line
-/// * Uses flags to set OwClient configuration
-/// * Computes owserver protocol flag field in OwClient
+/// * Uses flags to set OwMessage configuration
+/// * Computes owserver protocol flag field in OwMessage
 /// * Returns all non-flags on command line (paths and values as required)
 /// ### Example
 /// ```
 /// use std::ffi::OsString;
 /// use pico_args::Arguments;
 /// use owrust::parse_args::vector_line ;
-/// let mut owserver = owrust::new() ; // new OwClient structure
+/// let mut owserver = owrust::new() ; // new OwMessage structure
 /// let args: Vec<&str> = vec!(
 ///     "-C",
 ///     "--bare",
@@ -85,18 +85,18 @@ pub fn command_line(owserver: &mut crate::OwClient) -> OwEResult<Vec<String>> {
 ///     );
 /// let paths = vector_line( &mut owserver, args ).expect("Bad configuration");
 /// ```
-pub fn vector_line(owserver: &mut crate::OwClient, args: Vec<&str>) -> OwEResult<Vec<String>> {
+pub fn vector_line(owserver: &mut crate::OwMessage, args: Vec<&str>) -> OwEResult<Vec<String>> {
     // normal path -- from environment
     // convert Vec<String> to Vec<OsString>
     let os_args: Vec<OsString> = args.iter().map(OsString::from).collect();
     parser(owserver, Arguments::from_vec(os_args))
 }
 
-/// ### modified_client
-/// returns a clone of OwClient with `args` added
+/// ### modified_messager
+/// returns a clone of OwMessage with `args` added
 ///
 /// Useful for temporarily amending a connection using different flags
-pub fn modified_client(owserver: &crate::OwClient, args: Vec<&str>) -> OwEResult<crate::OwClient> {
+pub fn modified_messager(owserver: &crate::OwMessage, args: Vec<&str>) -> OwEResult<crate::OwMessage> {
     let mut clone = owserver.clone();
     vector_line(&mut clone, args)?;
     Ok(clone)
@@ -117,7 +117,7 @@ fn progname() -> String {
     }
 }
 
-fn parser(owserver: &mut crate::OwClient, mut args: Arguments) -> OwEResult<Vec<String>> {
+fn parser(owserver: &mut crate::OwMessage, mut args: Arguments) -> OwEResult<Vec<String>> {
     // Handle the help flag first
     if args.contains(["-h", "--help"]) {
         let p = progname();
@@ -305,10 +305,10 @@ mod tests {
     #[test]
     fn test_short_long() {
         for ts in [
-            ("Celsius", crate::OwClient::TEMPERATURE_C),
-            ("Kelvin", crate::OwClient::TEMPERATURE_K),
-            ("Farenheit", crate::OwClient::TEMPERATURE_F),
-            ("Rankine", crate::OwClient::TEMPERATURE_R),
+            ("Celsius", crate::OwMessage::TEMPERATURE_C),
+            ("Kelvin", crate::OwMessage::TEMPERATURE_K),
+            ("Farenheit", crate::OwMessage::TEMPERATURE_F),
+            ("Rankine", crate::OwMessage::TEMPERATURE_R),
         ] {
             let test = ts.0.to_string();
             for t in [short(&test), long(&test)] {
@@ -324,13 +324,13 @@ mod tests {
     #[test]
     fn long_opt() {
         for ts in [
-            ("mbar", crate::OwClient::PRESSURE_MBAR),
-            ("mmhg", crate::OwClient::PRESSURE_MMHG),
-            ("inhg", crate::OwClient::PRESSURE_INHG),
-            ("atm", crate::OwClient::PRESSURE_ATM),
-            ("pa", crate::OwClient::PRESSURE_PA),
-            ("psi", crate::OwClient::PRESSURE_PSI),
-            ("persist", crate::OwClient::PERSISTENCE),
+            ("mbar", crate::OwMessage::PRESSURE_MBAR),
+            ("mmhg", crate::OwMessage::PRESSURE_MMHG),
+            ("inhg", crate::OwMessage::PRESSURE_INHG),
+            ("atm", crate::OwMessage::PRESSURE_ATM),
+            ("pa", crate::OwMessage::PRESSURE_PA),
+            ("psi", crate::OwMessage::PRESSURE_PSI),
+            ("persist", crate::OwMessage::PERSISTENCE),
         ] {
             let test = ts.0.to_string();
             for t in [long(&test)] {
@@ -346,16 +346,16 @@ mod tests {
     #[test]
     fn clone_temperature() {
         for ts in [
-            ("Celsius", crate::OwClient::TEMPERATURE_C),
-            ("Kelvin", crate::OwClient::TEMPERATURE_K),
-            ("Farenheit", crate::OwClient::TEMPERATURE_F),
-            ("Rankine", crate::OwClient::TEMPERATURE_R),
+            ("Celsius", crate::OwMessage::TEMPERATURE_C),
+            ("Kelvin", crate::OwMessage::TEMPERATURE_K),
+            ("Farenheit", crate::OwMessage::TEMPERATURE_F),
+            ("Rankine", crate::OwMessage::TEMPERATURE_R),
         ] {
             let test = ts.0.to_string();
             for t in [short(&test), long(&test)] {
                 let args: Vec<&str> = vec![&t];
                 let owserver = crate::new();
-                let mut owserver2 = modified_client(&owserver, args).unwrap();
+                let mut owserver2 = modified_messager(&owserver, args).unwrap();
                 owserver2.make_flags();
                 let result = owserver2.flags & ts.1;
                 assert_eq!(result, ts.1);
@@ -366,21 +366,21 @@ mod tests {
     fn noport_test() {
         let args: Vec<&str> = vec![];
         let owserver = crate::new();
-        let mut owserver2 = modified_client(&owserver, args).unwrap();
+        let mut owserver2 = modified_messager(&owserver, args).unwrap();
         assert_eq!(owserver2.listener, None);
     }
     #[test]
     fn port_test() {
         let args: Vec<&str> = vec!["-p", "localhost:14304"];
         let owserver = crate::new();
-        let mut owserver2 = modified_client(&owserver, args).unwrap();
+        let mut owserver2 = modified_messager(&owserver, args).unwrap();
         assert_eq!(owserver2.listener, Some("localhost:14304".to_string()));
     }
     #[test]
     fn port2_test() {
         let args: Vec<&str> = vec!["--port", "localhost:14304"];
         let owserver = crate::new();
-        let mut owserver2 = modified_client(&owserver, args).unwrap();
+        let mut owserver2 = modified_messager(&owserver, args).unwrap();
         assert_eq!(owserver2.listener, Some("localhost:14304".to_string()));
     }
 }

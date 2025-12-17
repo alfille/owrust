@@ -131,7 +131,7 @@ fn main() {
 }
 
 // print 1-wire directory contents
-fn from_path(owserver: &mut owrust::OwClient, path: String) {
+fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     match owserver.dirall(&path) {
         Ok(files) => println!("{}", files.join("\n")),
         Err(e) => eprintln!("Trouble with path {} Error {}", path, e),

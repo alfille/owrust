@@ -173,7 +173,7 @@ fn main() -> io::Result<()> {
     };
 
     // add slash and persistence
-    match parse_args::modified_client(&owserver, vec!["--dir", "--persist"]) {
+    match parse_args::modified_messager(&owserver, vec!["--dir", "--persist"]) {
         Ok(mut new_server) => {
             let mut output_handle = io::stdout().lock();
             for path in paths.into_iter() {
@@ -199,7 +199,7 @@ fn main() -> io::Result<()> {
 
 // start at path, printing and following directories recursively
 fn from_path<W: Write>(
-    owserver: &mut owrust::OwClient,
+    owserver: &mut owrust::OwMessage,
     output_handle: &mut W,
     path: String,
 ) -> io::Result<()> {
@@ -214,7 +214,7 @@ struct Dir {
 }
 impl Dir {
     // directory needs to call dirall to get a list of contents
-    fn new(owserver: &mut owrust::OwClient, path: String) -> Self {
+    fn new(owserver: &mut owrust::OwMessage, path: String) -> Self {
         match owserver.dirall(&path) {
             Ok(d) => Dir {
                 contents: d.into_iter().map(File::new).collect(),
@@ -231,7 +231,7 @@ impl Dir {
     // print each file in directory
     fn print<W: Write>(
         &self,
-        owserver: &mut owrust::OwClient,
+        owserver: &mut owrust::OwMessage,
         output_handle: &mut W,
         prefix: &String,
     ) -> io::Result<()> {
@@ -296,7 +296,7 @@ impl File {
     }
     fn root_print<W: Write>(
         &self,
-        owserver: &mut owrust::OwClient,
+        owserver: &mut owrust::OwMessage,
         output_handle: &mut W,
     ) -> io::Result<()> {
         // File
@@ -307,7 +307,7 @@ impl File {
     // print each file with appropriate structure "prefix"
     fn print<W: Write>(
         &self,
-        owserver: &mut owrust::OwClient,
+        owserver: &mut owrust::OwMessage,
         output_handle: &mut W,
         prefix: &String,
         last: bool,
