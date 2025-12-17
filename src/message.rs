@@ -41,11 +41,11 @@ use std::net::{TcpListener, TcpStream};
 use std::str;
 use std::time::Duration;
 
-mod receive;
-use receive::OwResponse;
+mod response;
+use response::OwResponse;
 
-mod send;
-use send::OwQuery;
+mod query;
+use query::OwQuery;
 
 pub use crate::error::{OwEResult, OwError};
 
@@ -53,6 +53,8 @@ pub mod parse_args;
 
 /// Type for server tokens to prevent owserver network loops
 pub type Token = [u8; 16];
+const SERVERMESSAGE: u32 = 1 << 16;
+const SERVERTOKENS: u32 = 0xFFFF;
 mod token;
 use token::make_token;
 
@@ -317,31 +319,31 @@ impl OwMessage {
     }
 
     fn make_write(&self, text: &str, value: &[u8]) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::WRITE, Some(text), Some(value))
+        OwQuery::new(self.flags, OwQuery::WRITE, Some(text), Some(value), self.token)
     }
     fn make_read(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::READ, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::READ, Some(text), None, self.token)
     }
     fn make_dir(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::DIR, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::DIR, Some(text), None, self.token)
     }
     fn make_size(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::SIZE, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::SIZE, Some(text), None, self.token)
     }
     fn make_present(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::PRESENT, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::PRESENT, Some(text), None, self.token)
     }
     fn make_dirall(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::DIRALL, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::DIRALL, Some(text), None, self.token)
     }
     fn make_get(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::GET, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::GET, Some(text), None, self.token)
     }
     fn make_dirallslash(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::DIRALLSLASH, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::DIRALLSLASH, Some(text), None, self.token)
     }
     fn make_getslash(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::GETSLASH, Some(text), None)
+        OwQuery::new(self.flags, OwQuery::GETSLASH, Some(text), None, self.token)
     }
 
     fn send_get_single(&mut self, send: OwQuery) -> OwEResult<OwResponse> {
@@ -363,7 +365,7 @@ impl OwMessage {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             }
         };
-        let rcv = OwResponse::get_packet(stream, None)?;
+        let rcv = OwResponse::get(stream)?;
         Ok(rcv)
     }
 
@@ -392,7 +394,7 @@ impl OwMessage {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
             }
         };
-        let mut full_rcv = OwResponse::get_packet(stream, None)?;
+        let mut full_rcv = OwResponse::get(stream)?;
 
         if full_rcv.payload == 0 {
             return Ok(full_rcv);
@@ -400,7 +402,7 @@ impl OwMessage {
 
         loop {
             // get more packets and add content to first one, adjusting payload size
-            let mut rcv = OwResponse::get_packet(stream, None)?;
+            let mut rcv = OwResponse::get(stream)?;
             if self.debug > 0 {
                 eprintln!("Another packet");
             }
@@ -650,7 +652,7 @@ impl OwMessage {
             for stream in listen_stream.incoming() {
                 match stream {
                     Ok(stream) => {
-                        let instance = OwServerInstance::new(self.clone(), stream);
+                        let mut instance = OwServerInstance::new(self.clone(), stream);
                         thread::spawn(move || {
                             instance.handle_query();
                         });
@@ -678,7 +680,7 @@ impl OwServerInstance {
     fn new(message: crate::OwMessage, stream: TcpStream) -> OwServerInstance {
         OwServerInstance { message, stream }
     }
-    fn handle_query(&self) {
+    fn handle_query(&mut self) {
         // Set timeout
         match self.stream.set_read_timeout(Some(Duration::from_secs(5))) {
             Ok(_) => (),
@@ -688,7 +690,7 @@ impl OwServerInstance {
             }
         }
 
-        let mut rcv = match OwResponse::get_packet( &self.stream, Some(self.message.token) ) {
+        let mut rcv = match OwResponse::get( &mut self.stream ) {
             Ok(r)=>r,
             Err(e)=>{
                 eprintln!("Could not read a packet. {}",e);

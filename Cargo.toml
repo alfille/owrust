@@ -7,3 +7,4 @@ edition = "2024"
 pico-args = "0.5" # Use the latest version
 md-5 = "0.10" # Or latest version
 rand = "0.8" # for random salt
+bytemuck = "1.15"

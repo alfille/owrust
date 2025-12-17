@@ -36,16 +36,13 @@
 // {c} 2025 Paul H Alfille
 
 use crate::message::OwQuery;
-use crate::message::Token;
 pub use crate::error::{OwEResult, OwError};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-const SERVERMESSAGE: u32 = 1 << 16;
-const SERVERTOKENS: u32 = 0xFFFF;
-
-/// message received back from owserver
+/// message with answers
 /// * header (24 bytes) and content
+/// * differs from query in **ret** value rather than **message type** 
 pub(super) struct OwResponse {
     pub(super) version: u32,
     pub(super) payload: u32,
@@ -54,40 +51,27 @@ pub(super) struct OwResponse {
     pub(super) size: u32,
     pub(super) offset: u32,
     pub(super) content: Vec<u8>,
-    pub(super) tokenlist: Vec<Token>,
 }
 impl OwResponse {
-    const HSIZE: usize = 24;
-    /// Take first 24 bytes of buffer to fill header
-    pub(super) fn new(buffer: [u8; OwResponse::HSIZE]) -> Self {
+    pub(super) fn new( flags: u32) -> Self {
         OwResponse {
-            version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
-            payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
-            ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
-            flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-            size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-            offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+            version: 1,
+            payload: 0,
+            ret: 0,
+            flags,
+            size: 0,
+            offset: 0,
             content: [].to_vec(),
-            tokenlist: [].to_vec(),
         }
     }
-/*    pub(super) fn tell(&self) {
-        eprintln!(
-            "ver {:X}, pay {}, ret {}, flg {:X}, siz {}, off {}",
-            self.version, self.payload, self.ret, self.flags, self.size, self.offset
-        );
-    }
-*/
-    /// ### get_packet
-    /// Get a message from the network and parse it:
+
+    /// ### get
+    /// Get a RESPONSE message from the network and parse it:
     /// * read header ( 6 words), translated from network order
     /// * read payload
-    /// * read tokens
-    /// * check for our token on list (==loop)
     /// * ignore pings
-    pub fn get_packet(
+    pub fn get(
         stream: &mut TcpStream,
-        my_token: Option<Token>,
     ) -> OwEResult<OwResponse> {
         // get a single non-ping message.
         // May need multiple for directories
@@ -95,8 +79,18 @@ impl OwResponse {
         let mut buffer: [u8; HSIZE] = [0; HSIZE];
 
         loop {
+			/// Take first 24 bytes of buffer to fill header
             stream.read_exact(&mut buffer)?;
-            let mut rcv = OwResponse::new(buffer);
+            let mut rcv = 
+				OwResponse {
+					version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+					payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+					ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
+					flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+					size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+					offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+					content: [].to_vec(),
+				} ;
 
             // read payload
             if rcv.payload > 0 {
@@ -105,23 +99,6 @@ impl OwResponse {
                 rcv.content.resize(rcv.payload as usize, 0);
 
                 stream.read_exact(&mut rcv.content)?;
-            }
-
-            // read tokens
-            if (rcv.version & SERVERMESSAGE) == SERVERMESSAGE {
-                let toks = rcv.version & SERVERTOKENS;
-                for _ in 0..toks {
-                    let mut tok: Token = [0u8; 16];
-                    stream.read_exact(&mut tok)?;
-                    rcv.tokenlist.push(tok)
-                }
-            }
-
-            // test token
-            if let Some(t) = my_token
-                && rcv.tokenlist.contains(&t)
-            {
-                return Err(OwError::General("Loop in owserver topology".to_string()));
             }
 
             // test ping message (ignore -- it's a keepalive)
@@ -133,15 +110,30 @@ impl OwResponse {
             return Ok(rcv);
         }
     }
-    pub fn add_token( &mut self, my_token: Option<Token>) {
-        let toks = match self.version & SERVERMESSAGE {
-            SERVERMESSAGE => self.version & SERVERTOKENS,
-            _ => 0,
-        } ;
-        if let Some(token)=my_token {
-            self.version = SERVERMESSAGE | (toks+1) ;
-            self.tokenlist.push(token) ;
+
+    /// ### send
+    /// * Send RESPONSE message to an owserver
+    /// * Converts header to network order
+    /// * includes payload
+    pub(super) fn send(&mut self, stream: &mut TcpStream) -> OwEResult<()> {
+        let mut msg: Vec<u8> = [
+            self.version,
+            self.payload,
+            self.ret as u32,
+            self.flags,
+            self.size,
+            self.offset,
+        ]
+        .iter()
+        .flat_map(|&u| u.to_be_bytes())
+        .collect();
+        if self.payload > 0 {
+            msg.extend_from_slice(&self.content);
         }
+
+        // Write to network
+        stream.write_all(&msg)?;
+        Ok(())
     }
 }
 
@@ -215,11 +207,11 @@ pub trait PrintMessage {
         (first, second)
     }
     fn string_version(&self) -> String {
-        if (self.version() & SERVERMESSAGE) == SERVERMESSAGE {
+        if (self.version() & crate::message::SERVERMESSAGE) == crate::message::SERVERMESSAGE {
             format!(
                 "{:X} tokens={}",
                 self.version(),
-                self.version() & SERVERTOKENS
+                self.version() & crate::message::SERVERTOKENS
             )
         } else {
             format!("{:X}", self.version())

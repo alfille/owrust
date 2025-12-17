@@ -40,13 +40,17 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::str;
 
-pub use crate::error::OwEResult;
+pub use crate::error::{OwEResult, OwError};
+
+// for Token management
+use crate::message::Token;
 
 /// ### OwQuery
-/// message constructed to send to owserver
+/// message constructed to ask an owserver
 /// * 24 byte header (6 32-bit integers)
 /// * contents (C-string)
 /// * needs to be converted to network-endian format before sending
+/// * Add our token
 pub(super) struct OwQuery {
     pub(super) version: u32,
     pub(super) payload: u32,
@@ -55,6 +59,7 @@ pub(super) struct OwQuery {
     pub(super) size: u32,
     pub(super) offset: u32,
     pub(super) content: Vec<u8>,
+    pub(super) tokenlist: Vec<Token>,
 }
 
 impl OwQuery {
@@ -82,6 +87,7 @@ impl OwQuery {
         mtype: u32,
         path: Option<&str>,
         value: Option<&[u8]>,
+        token: Token,
     ) -> OwEResult<OwQuery> {
         let mut msg = OwQuery {
             version: OwQuery::SENDVERSION,
@@ -91,6 +97,7 @@ impl OwQuery {
             size: OwQuery::DEFAULTSIZE,
             offset: 0,
             content: [].to_vec(),
+			tokenlist: [].to_vec(),
         };
         if let Some(p) = path {
             msg.add_path(p)?;
@@ -98,6 +105,7 @@ impl OwQuery {
         if let Some(v) = value {
             msg.add_data(v);
         }
+        msg.add_token( token ) ;
         Ok(msg)
     }
     
@@ -105,7 +113,7 @@ impl OwQuery {
 
     /// first element of content and update payload length
     /// * should be null ended string or nothing
-    pub(super) fn add_path(&mut self, path: &str) -> OwEResult<()> {
+    fn add_path(&mut self, path: &str) -> OwEResult<()> {
         // Add nul-terminated path (and includes null in payload size)
         let s = ffi::CString::new(path)?;
         self.content = s.as_bytes().to_vec();
@@ -118,18 +126,86 @@ impl OwQuery {
     /// * not null ended
     /// * payload includes both
     /// * size is just this field's
-    pub(super) fn add_data(&mut self, data: &[u8]) {
+    fn add_data(&mut self, data: &[u8]) {
         // Add data after path without nul
         self.content.extend_from_slice(data);
         self.size = data.len() as u32;
         self.payload += self.size;
     }
 
+    /// ### get
+    /// Get a QUERY message from the network and parse it:
+    /// * read header ( 6 words), translated from network order
+    /// * read payload
+    /// * read tokens
+    /// * check for our token on list (==loop)
+    /// * ignore pings
+    pub fn get(
+        stream: &mut TcpStream,
+        token: Token,
+    ) -> OwEResult<OwQuery> {
+        // get a single non-ping message.
+        // May need multiple for directories
+        static HSIZE: usize = 24;
+        let mut buffer: [u8; HSIZE] = [0; HSIZE];
+
+        loop {
+            stream.read_exact(&mut buffer)?;
+			let mut rcv = OwQuery {
+				version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+				payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+				mtype: u32::from_be_bytes(buffer[8..12].try_into().unwrap()),
+				flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+				size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+				offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+				content: [].to_vec(),
+				tokenlist: [].to_vec(),
+			} ;
+
+            // read payload
+            if rcv.payload > 0 {
+                // create Vec with just the right size (based on payload)
+                rcv.content = Vec::with_capacity(rcv.payload as usize);
+                rcv.content.resize(rcv.payload as usize, 0);
+
+                stream.read_exact(&mut rcv.content)?;
+            }
+
+            // read tokens
+            if (rcv.version & crate::message::SERVERMESSAGE) == crate::message::SERVERMESSAGE {
+                let toks = rcv.version & crate::message::SERVERTOKENS;
+                for _ in 0..toks {
+                    let mut tok: Token = [0u8; 16];
+                    stream.read_exact(&mut tok)?;
+                    rcv.tokenlist.push(tok)
+                }
+            }
+
+            // test token
+            if rcv.tokenlist.contains(&token) {
+                return Err(OwError::General("Loop in owserver topology".to_string()));
+            }
+            
+            // Add our token
+            rcv.add_token( token ) ;
+
+            // test ping message (ignore -- it's a keepalive)
+            if (rcv.payload as i32) < 0 {
+                // ping
+                continue;
+            }
+
+            return Ok(rcv);
+        }
+    }
+    
     /// ### send
-    /// * Send rcv_message to owserver
+    /// * Send QUERY message to an owserver
     /// * Converts header to network order
     /// * includes payload
+    /// * includes tokens
     /// * Will include tokens when available
+    /// * own token included
     pub(super) fn send(&mut self, stream: &mut TcpStream) -> OwEResult<()> {
         let mut msg: Vec<u8> = [
             self.version,
@@ -145,14 +221,24 @@ impl OwQuery {
         if self.payload > 0 {
             msg.extend_from_slice(&self.content);
         }
+        // use bytemuck to reinterpret sequential lumps of bytes to sequential bytes
+        msg.extend_from_slice(bytemuck::cast_slice(&self.tokenlist));
 
         // Write to network
         stream.write_all(&msg)?;
         Ok(())
     }
+    pub fn add_token( &mut self, token: Token) {
+        let toks = match self.version & crate::message::SERVERMESSAGE {
+            crate::message::SERVERMESSAGE => self.version & crate::message::SERVERTOKENS,
+            _ => 0,
+        } ;
+		self.version = crate::message::SERVERMESSAGE | (toks+1) ;
+		self.tokenlist.push(token) ;
+    }
 }
 
-impl crate::message::receive::PrintMessage for OwQuery {
+impl crate::message::response::PrintMessage for OwQuery {
     fn version(&self) -> u32 {
         self.version
     }
