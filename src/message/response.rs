@@ -35,14 +35,14 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use crate::message::OwQuery;
 pub use crate::error::{OwEResult, OwError};
+use crate::message::OwQuery;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
 /// message with answers
 /// * header (24 bytes) and content
-/// * differs from query in **ret** value rather than **message type** 
+/// * differs from query in **ret** value rather than **message type**
 pub(super) struct OwResponse {
     pub(super) version: u32,
     pub(super) payload: u32,
@@ -53,7 +53,7 @@ pub(super) struct OwResponse {
     pub(super) content: Vec<u8>,
 }
 impl OwResponse {
-    pub(super) fn new( flags: u32) -> Self {
+    pub(super) fn new(flags: u32) -> Self {
         OwResponse {
             version: 1,
             payload: 0,
@@ -70,27 +70,24 @@ impl OwResponse {
     /// * read header ( 6 words), translated from network order
     /// * read payload
     /// * ignore pings
-    pub fn get(
-        stream: &mut TcpStream,
-    ) -> OwEResult<OwResponse> {
+    pub fn get(stream: &mut TcpStream) -> OwEResult<OwResponse> {
         // get a single non-ping message.
         // May need multiple for directories
         static HSIZE: usize = 24;
         let mut buffer: [u8; HSIZE] = [0; HSIZE];
 
         loop {
-			/// Take first 24 bytes of buffer to fill header
+            /// Take first 24 bytes of buffer to fill header
             stream.read_exact(&mut buffer)?;
-            let mut rcv = 
-				OwResponse {
-					version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
-					payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
-					ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
-					flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-					size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-					offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
-					content: [].to_vec(),
-				} ;
+            let mut rcv = OwResponse {
+                version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+                payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+                ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
+                flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+                size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+                offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+                content: [].to_vec(),
+            };
 
             // read payload
             if rcv.payload > 0 {
@@ -169,15 +166,15 @@ pub trait PrintMessage {
     fn print_all(&self, title: String) {
         println!("{} {}", title, self.line1());
         println!("{}", self.line2());
-        println!("Flags: {}",crate::message::OwMessage::flag_string(self.flags()));
+        println!(
+            "Flags: {}",
+            crate::message::OwMessage::flag_string(self.flags())
+        );
         println!("{}", self.line3());
     }
 
     fn line1(&self) -> String {
-        format!(
-            " Version: {}",
-            self.string_version()
-        )
+        format!(" Version: {}", self.string_version())
     }
     fn line2(&self) -> String {
         self.string_type()

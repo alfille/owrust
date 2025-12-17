@@ -97,7 +97,7 @@ impl OwQuery {
             size: OwQuery::DEFAULTSIZE,
             offset: 0,
             content: [].to_vec(),
-			tokenlist: [].to_vec(),
+            tokenlist: [].to_vec(),
         };
         if let Some(p) = path {
             msg.add_path(p)?;
@@ -105,11 +105,11 @@ impl OwQuery {
         if let Some(v) = value {
             msg.add_data(v);
         }
-        msg.add_token( token ) ;
+        msg.add_token(token);
         Ok(msg)
     }
-    
-//    pub(super) relay( crate::message::OwResponse 
+
+    //    pub(super) relay( crate::message::OwResponse
 
     /// first element of content and update payload length
     /// * should be null ended string or nothing
@@ -140,10 +140,7 @@ impl OwQuery {
     /// * read tokens
     /// * check for our token on list (==loop)
     /// * ignore pings
-    pub fn get(
-        stream: &mut TcpStream,
-        token: Token,
-    ) -> OwEResult<OwQuery> {
+    pub fn get(stream: &mut TcpStream, token: Token) -> OwEResult<OwQuery> {
         // get a single non-ping message.
         // May need multiple for directories
         static HSIZE: usize = 24;
@@ -151,16 +148,16 @@ impl OwQuery {
 
         loop {
             stream.read_exact(&mut buffer)?;
-			let mut rcv = OwQuery {
-				version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
-				payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
-				mtype: u32::from_be_bytes(buffer[8..12].try_into().unwrap()),
-				flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-				size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-				offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
-				content: [].to_vec(),
-				tokenlist: [].to_vec(),
-			} ;
+            let mut rcv = OwQuery {
+                version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+                payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+                mtype: u32::from_be_bytes(buffer[8..12].try_into().unwrap()),
+                flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+                size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+                offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+                content: [].to_vec(),
+                tokenlist: [].to_vec(),
+            };
 
             // read payload
             if rcv.payload > 0 {
@@ -185,9 +182,9 @@ impl OwQuery {
             if rcv.tokenlist.contains(&token) {
                 return Err(OwError::General("Loop in owserver topology".to_string()));
             }
-            
+
             // Add our token
-            rcv.add_token( token ) ;
+            rcv.add_token(token);
 
             // test ping message (ignore -- it's a keepalive)
             if (rcv.payload as i32) < 0 {
@@ -198,7 +195,7 @@ impl OwQuery {
             return Ok(rcv);
         }
     }
-    
+
     /// ### send
     /// * Send QUERY message to an owserver
     /// * Converts header to network order
@@ -228,13 +225,13 @@ impl OwQuery {
         stream.write_all(&msg)?;
         Ok(())
     }
-    pub fn add_token( &mut self, token: Token) {
+    pub fn add_token(&mut self, token: Token) {
         let toks = match self.version & crate::message::SERVERMESSAGE {
             crate::message::SERVERMESSAGE => self.version & crate::message::SERVERTOKENS,
             _ => 0,
-        } ;
-		self.version = crate::message::SERVERMESSAGE | (toks+1) ;
-		self.tokenlist.push(token) ;
+        };
+        self.version = crate::message::SERVERMESSAGE | (toks + 1);
+        self.tokenlist.push(token);
     }
 }
 

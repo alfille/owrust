@@ -164,8 +164,8 @@ impl OwMessage {
     const TEMPERATURE_C: u32 = 0x00000000;
     const TEMPERATURE_F: u32 = 0x00010000;
     const TEMPERATURE_K: u32 = 0x00020000;
-    const TEMPERATURE_R: u32 = 0x00030000;    
-    const TEMPERATURE_MASK: u32 = 0x00030000;    
+    const TEMPERATURE_R: u32 = 0x00030000;
+    const TEMPERATURE_MASK: u32 = 0x00030000;
     // -- Pressure flags (mutually exclusive)
     const PRESSURE_MBAR: u32 = 0x00000000;
     const PRESSURE_ATM: u32 = 0x00040000;
@@ -180,8 +180,6 @@ impl OwMessage {
 
     #[allow(unused)]
     const UNCACHED: u32 = 0x00000020;
-    
-    
 
     #[allow(unused)]
     const SAFEMODE: u32 = 0x00000010;
@@ -203,18 +201,18 @@ impl OwMessage {
     /// * Safemode (safe)
     /// * Alias (alias)
     /// * Bus_Ret (bus)
-    pub fn flag_string( flag: u32 ) -> String {
+    pub fn flag_string(flag: u32) -> String {
         [
             match flag & OwMessage::TEMPERATURE_MASK {
-                OwMessage::TEMPERATURE_C => "C", 
-                OwMessage::TEMPERATURE_F => "F", 
-                OwMessage::TEMPERATURE_K => "K", 
+                OwMessage::TEMPERATURE_C => "C",
+                OwMessage::TEMPERATURE_F => "F",
+                OwMessage::TEMPERATURE_K => "K",
                 _ => "R",
-            }, 
+            },
             match flag & OwMessage::PRESSURE_MASK {
-                OwMessage::PRESSURE_MBAR => "mbar", 
-                OwMessage::PRESSURE_MMHG => "mmHg", 
-                OwMessage::PRESSURE_INHG => "inHg", 
+                OwMessage::PRESSURE_MBAR => "mbar",
+                OwMessage::PRESSURE_MMHG => "mmHg",
+                OwMessage::PRESSURE_INHG => "inHg",
                 OwMessage::PRESSURE_PA => "pa",
                 OwMessage::PRESSURE_ATM => "atm",
                 _ => "psi",
@@ -222,8 +220,8 @@ impl OwMessage {
             match flag & OwMessage::FORMAT_MASK {
                 OwMessage::FORMAT_F_I => "f.i",
                 OwMessage::FORMAT_FI => "fi",
-                OwMessage::FORMAT_F_I_C =>"f.i.c",
-                OwMessage::FORMAT_F_IC =>"f.ic",
+                OwMessage::FORMAT_F_I_C => "f.i.c",
+                OwMessage::FORMAT_F_IC => "f.ic",
                 OwMessage::FORMAT_FI_C => "fi.c",
                 _ => "fic",
             },
@@ -319,7 +317,13 @@ impl OwMessage {
     }
 
     fn make_write(&self, text: &str, value: &[u8]) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::WRITE, Some(text), Some(value), self.token)
+        OwQuery::new(
+            self.flags,
+            OwQuery::WRITE,
+            Some(text),
+            Some(value),
+            self.token,
+        )
     }
     fn make_read(&self, text: &str) -> OwEResult<OwQuery> {
         OwQuery::new(self.flags, OwQuery::READ, Some(text), None, self.token)
@@ -340,7 +344,13 @@ impl OwMessage {
         OwQuery::new(self.flags, OwQuery::GET, Some(text), None, self.token)
     }
     fn make_dirallslash(&self, text: &str) -> OwEResult<OwQuery> {
-        OwQuery::new(self.flags, OwQuery::DIRALLSLASH, Some(text), None, self.token)
+        OwQuery::new(
+            self.flags,
+            OwQuery::DIRALLSLASH,
+            Some(text),
+            None,
+            self.token,
+        )
     }
     fn make_getslash(&self, text: &str) -> OwEResult<OwQuery> {
         OwQuery::new(self.flags, OwQuery::GETSLASH, Some(text), None, self.token)
@@ -690,12 +700,12 @@ impl OwServerInstance {
             }
         }
 
-        let mut rcv = match OwResponse::get( &mut self.stream ) {
-            Ok(r)=>r,
-            Err(e)=>{
-                eprintln!("Could not read a packet. {}",e);
+        let mut rcv = match OwResponse::get(&mut self.stream) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("Could not read a packet. {}", e);
                 return;
-            },
+            }
         };
     }
 }

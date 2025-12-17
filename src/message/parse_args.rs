@@ -96,7 +96,10 @@ pub fn vector_line(owserver: &mut crate::OwMessage, args: Vec<&str>) -> OwEResul
 /// returns a clone of OwMessage with `args` added
 ///
 /// Useful for temporarily amending a connection using different flags
-pub fn modified_messager(owserver: &crate::OwMessage, args: Vec<&str>) -> OwEResult<crate::OwMessage> {
+pub fn modified_messager(
+    owserver: &crate::OwMessage,
+    args: Vec<&str>,
+) -> OwEResult<crate::OwMessage> {
     let mut clone = owserver.clone();
     vector_line(&mut clone, args)?;
     Ok(clone)
