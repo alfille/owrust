@@ -163,14 +163,15 @@ pub trait PrintMessage {
 
     /// ### print_all
     /// Shows message contents
-    fn print_all(&self, title: String) {
-        println!("{} {}", title, self.line1());
-        println!("{}", self.line2());
-        println!(
-            "Flags: {}",
-            crate::message::OwMessage::flag_string(self.flags())
-        );
-        println!("{}", self.line3());
+    fn print_all(&self, title: &str) -> String {
+        vec!(
+        format!("{} {}", title, self.line1()),
+        format!("{}", self.line2()),
+        format!("Flags: {}",crate::message::OwMessage::flag_string(self.flags())),
+        format!("{}", self.line3()),
+        )
+        .join("\n")
+        .to_string()
     }
 
     fn line1(&self) -> String {
@@ -273,4 +274,15 @@ impl PrintMessage for OwResponse {
         self.tokenlist
     }
     */
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_blank_response() {
+        let resp = OwResponse::new(0x10101010 as u32) ;
+        let desc = resp.print_all("Test Response") ;
+        assert_eq!( desc, "Test Response  Version: 1\nUNKNOWN message number 0\nFlags: C psi f.i   safe   \nPayload:0 Size:0 Offset:0".to_string() ) ;
+    }
 }
