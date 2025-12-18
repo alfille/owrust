@@ -48,6 +48,7 @@ mod query;
 use query::OwQuery;
 
 pub use crate::error::{OwEResult, OwError};
+use crate::message::response::PrintMessage ;
 
 pub mod parse_args;
 
@@ -700,13 +701,25 @@ impl OwServerInstance {
             }
         }
 
-        let mut rcv = match OwResponse::get(&mut self.stream) {
+        let mut rcv = match OwQuery::get(&mut self.stream, self.message.token) {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Could not read a packet. {}", e);
                 return;
             }
         };
+        
+        println!("{}",rcv.print_all("Query Message incoming"));
+        self.message.send_packet( rcv )? ;
+        
+        match rcv.mtype {
+            crate::message::query::OwQuery::DIR => {
+                ();
+            },
+            _ => {
+                ();
+            },
+        }
     }
 }
 
