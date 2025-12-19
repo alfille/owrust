@@ -43,6 +43,7 @@ use std::net::TcpStream;
 /// message with answers
 /// * header (24 bytes) and content
 /// * differs from query in **ret** value rather than **message type**
+#[derive(Debug, PartialEq, Clone)]
 pub(super) struct OwResponse {
     pub(super) version: u32,
     pub(super) payload: u32,
@@ -77,7 +78,7 @@ impl OwResponse {
         let mut buffer: [u8; HSIZE] = [0; HSIZE];
 
         loop {
-            /// Take first 24 bytes of buffer to fill header
+            // Take first 24 bytes of buffer to fill header
             stream.read_exact(&mut buffer)?;
             let mut rcv = OwResponse {
                 version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),

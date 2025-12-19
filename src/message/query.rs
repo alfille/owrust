@@ -51,6 +51,7 @@ use crate::message::Token;
 /// * contents (C-string)
 /// * needs to be converted to network-endian format before sending
 /// * Add our token
+#[derive(Debug, PartialEq, Clone)]
 pub(super) struct OwQuery {
     pub(super) version: u32,
     pub(super) payload: u32,

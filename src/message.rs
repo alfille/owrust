@@ -357,13 +357,13 @@ impl OwMessage {
         OwQuery::new(self.flags, OwQuery::GETSLASH, Some(text), None, self.token)
     }
 
-    fn send_get_single(&mut self, send: OwQuery) -> OwEResult<OwResponse> {
-        self.send_packet(send)?;
+    fn send_get_single(&mut self, mut send: OwQuery) -> OwEResult<OwResponse> {
+        self.send_packet(&mut send)?;
         self.get_msg_single()
     }
 
-    fn send_get_many(&mut self, send: OwQuery) -> OwEResult<OwResponse> {
-        self.send_packet(send)?;
+    fn send_get_many(&mut self, mut send: OwQuery) -> OwEResult<OwResponse> {
+        self.send_packet(&mut send)?;
         self.get_msg_many()
     }
 
@@ -432,7 +432,7 @@ impl OwMessage {
         Ok(())
     }
 
-    fn send_packet(&mut self, mut msg: OwQuery) -> OwEResult<()> {
+    fn send_packet(&mut self, msg: &mut OwQuery) -> OwEResult<()> {
         // Write to network
         if self.debug > 1 {
             eprintln!("about to connect");
@@ -710,7 +710,7 @@ impl OwServerInstance {
         };
         
         println!("{}",rcv.print_all("Query Message incoming"));
-        self.message.send_packet( rcv )? ;
+        let _ = self.message.send_packet( &mut rcv ) ;
         
         match rcv.mtype {
             crate::message::query::OwQuery::DIR => {
