@@ -41,8 +41,10 @@ use std::time::Duration;
 
 pub use crate::error::{OwEResult, OwError};
 
+/// ### Stream
+/// manage the Tcp connections including timeouts and persistance
 #[derive(Debug)]
-struct Stream {
+pub struct Stream {
     stream: Option<TcpStream>,
     persist: bool,
 }
@@ -56,8 +58,8 @@ impl Clone for Stream {
     }
 }
 
-implr Stream {
-    fn new{ persist: bool ) -> Self {
+impl Stream {
+    fn new( persist: bool ) -> Self {
         Stream{
             stream: None,
             persist,
@@ -65,14 +67,10 @@ implr Stream {
     }
     
     fn set_timeout ( &self ) -> OwEResult<()> {
-        match self.stream {
-            Some(s) => {
-                s.set_read_timeout( Some(Duration::from_secs(5))) ? ;
-            },
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            },
-        }
+		if let Some(stream) = self.stream {
+			stream.set_read_timeout( Some(Duration::from_secs(5))) ? ;
+		}
+        Ok(())
     }
 }
 
@@ -87,19 +85,6 @@ implr Stream {
         };
         let rcv = OwResponse::get(stream)?;
         Ok(rcv)
-    }
-
-    fn set_timeout(&mut self) -> OwEResult<()> {
-        match self.stream.stream.as_mut() {
-            Some(s) => {
-                // Set timeout
-                s.set_read_timeout(Some(Duration::from_secs(5)))?;
-            }
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            }
-        }
-        Ok(())
     }
 
     // Loop through getting packets until payload empty
@@ -175,3 +160,4 @@ implr Stream {
         Ok(())
     }
 
+}

@@ -47,6 +47,9 @@ use response::OwResponse;
 mod query;
 use query::OwQuery;
 
+mod stream;
+use stream::Stream;
+
 pub use crate::error::{OwEResult, OwError};
 use crate::message::response::PrintMessage ;
 
