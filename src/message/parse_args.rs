@@ -218,7 +218,7 @@ Read a virtual 1-wire directory from owserver.
 
     // Persist
     if args.contains("--persist") {
-        owserver.persistence = true;
+        owserver.stream.set_persistence(true);
     }
 
     // Display
@@ -246,11 +246,16 @@ Read a virtual 1-wire directory from owserver.
     }
 
     // Server
-    let s: Option<String> = args.opt_value_from_str(["-s", "--server"])?;
-    owserver.owserver = s.unwrap_or(String::from("localhost:4304"));
+    let serv: Option<String> = args.opt_value_from_str(["-s", "--server"])?;
+    if let Some(s) = serv {
+        owserver.stream.set_target(&s);
+    }
 
     // Listener
-    owserver.listener = args.opt_value_from_str(["-p", "--port"])?;
+    let listener: Option<String> = args.opt_value_from_str(["-p", "--port"])?;
+    if listener.is_some() {
+        owserver.listener = listener;
+    }
 
     let mut result: Vec<String> = Vec::new();
     for os in args.finish() {

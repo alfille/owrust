@@ -271,17 +271,12 @@ impl crate::message::response::PrintMessage for OwQuery {
 mod tests {
     use super::*;
     use crate::message::response::PrintMessage;
-    
+
     #[test]
     fn test_blank_query() {
-        let query = OwQuery::new(
-        0x10101010 as u32,
-        OwQuery::READ,
-        Some("/"),
-        None,
-        [0u8;16],
-        ).unwrap() ;
-        let desc = query.print_all("Test Query") ;
-        assert_eq!( desc, "Test Query  Version: 10001 tokens=1\nReturn code = 2\nFlags: C psi f.i   safe   \nPayload:1 Size:65536 Offset:0".to_string() ) ;
+        let query =
+            OwQuery::new(0x10101010 as u32, OwQuery::READ, Some("/"), None, [0u8; 16]).unwrap();
+        let desc = query.print_all("Test Query");
+        assert_eq!( desc, "Test Query  Version: 10001 tokens=1\nReturn code = 2\nFlags: C psi f.i   safe   \nPayload:1 Size:65536 Offset:0".to_string() );
     }
 }

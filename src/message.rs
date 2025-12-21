@@ -47,11 +47,11 @@ use response::OwResponse;
 mod query;
 use query::OwQuery;
 
-mod stream;
+pub mod stream;
 use stream::Stream;
 
 pub use crate::error::{OwEResult, OwError};
-use crate::message::response::PrintMessage ;
+use crate::message::response::PrintMessage;
 
 pub mod parse_args;
 
@@ -112,16 +112,6 @@ pub enum Format {
     DEFAULT,
 }
 
-#[derive(Debug)]
-struct Stream {
-    stream: Option<TcpStream>,
-}
-impl Clone for Stream {
-    fn clone(&self) -> Self {
-        Stream { stream: None }
-    }
-}
-
 #[derive(Debug, Clone)]
 /// ### OwMessage
 /// structure that manages the connection to owserver
@@ -136,7 +126,6 @@ impl Clone for Stream {
 /// let mut owserver = owrust::new() ;
 /// ```
 pub struct OwMessage {
-    owserver: String,
     listener: Option<String>,
     token: Token,
     temperature: Temperature,
@@ -148,7 +137,6 @@ pub struct OwMessage {
     hex: bool,
     bare: bool,
     prune: bool,
-    persistence: bool,
     stream: Stream,
     debug: u32,
     flags: u32,
@@ -260,7 +248,6 @@ impl OwMessage {
 
     fn new() -> Self {
         let mut owc = OwMessage {
-            owserver: String::from("localhost:4304"),
             listener: None,
             token: make_token(),
             temperature: Temperature::DEFAULT,
@@ -272,8 +259,7 @@ impl OwMessage {
             hex: false,
             bare: false,
             prune: false,
-            persistence: false,
-            stream: Stream { stream: None },
+            stream: Stream::new(),
             debug: 0,
             flags: 0,
         };
@@ -287,7 +273,7 @@ impl OwMessage {
         if !self.bare {
             flags |= OwMessage::BUS_RET;
         }
-        if self.persistence {
+        if self.stream.get_persistence() {
             flags |= OwMessage::PERSISTENCE;
         }
         flags |= match self.temperature {
@@ -371,9 +357,7 @@ impl OwMessage {
     }
 
     fn get_msg_single(&mut self) -> OwEResult<OwResponse> {
-        // Set timeout
-        self.set_timeout()?;
-        let stream = match self.stream.stream.as_mut() {
+        let stream = match self.stream.get() {
             Some(s) => s,
             None => {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
@@ -383,26 +367,10 @@ impl OwMessage {
         Ok(rcv)
     }
 
-    fn set_timeout(&mut self) -> OwEResult<()> {
-        match self.stream.stream.as_mut() {
-            Some(s) => {
-                // Set timeout
-                s.set_read_timeout(Some(Duration::from_secs(5)))?;
-            }
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            }
-        }
-        Ok(())
-    }
-
     // Loop through getting packets until payload empty
     // for directories
     fn get_msg_many(&mut self) -> OwEResult<OwResponse> {
-        // Set timeout
-        self.set_timeout()?;
-
-        let stream = match self.stream.stream.as_mut() {
+        let stream = match self.stream.get() {
             Some(s) => s,
             None => {
                 return Err(OwError::General("No Tcp stream defined".to_string()));
@@ -429,44 +397,16 @@ impl OwMessage {
         }
     }
 
-    fn connect(&mut self) -> OwEResult<()> {
-        let stream = TcpStream::connect(&self.owserver)?;
-        self.stream.stream = Some(stream);
-        Ok(())
-    }
-
     fn send_packet(&mut self, msg: &mut OwQuery) -> OwEResult<()> {
         // Write to network
-        if self.debug > 1 {
-            eprintln!("about to connect");
-        }
-
-        // Create or reuse a connection
-        if self.persistence {
-            match self.stream.stream.as_mut() {
-                None => {
-                    // need initial connection
-                    self.connect()?;
-                }
-                Some(s) => {
-                    // test existing connection
-                    match s.write_all(&[]) {
-                        Ok(()) => {}
-                        Err(_) => {
-                            // recreate
-                            self.connect()?;
-                        }
-                    }
-                }
-            };
-        } else {
-            // No persistence, make new connection
-            self.connect()?;
-        }
-        if let Some(stream) = &mut self.stream.stream {
-            msg.send(stream)?;
-        }
-        Ok(())
+        self.stream.connect()?;
+        let stream = match self.stream.get() {
+            Some(s) => s,
+            None => {
+                return Err(OwError::General("No Tcp stream defined".to_string()));
+            }
+        };
+        msg.send(stream)
     }
 
     fn get_value(
@@ -711,17 +651,17 @@ impl OwServerInstance {
                 return;
             }
         };
-        
-        println!("{}",rcv.print_all("Query Message incoming"));
-        let _ = self.message.send_packet( &mut rcv ) ;
-        
+
+        println!("{}", rcv.print_all("Query Message incoming"));
+        let _ = self.message.send_packet(&mut rcv);
+
         match rcv.mtype {
             crate::message::query::OwQuery::DIR => {
                 ();
-            },
+            }
             _ => {
                 ();
-            },
+            }
         }
     }
 }

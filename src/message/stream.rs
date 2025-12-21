@@ -7,23 +7,23 @@
 //! * **owrust** [repository](https://github.com/alfille/owrust)
 //!
 //! ## PURPOSE
-//! lib.rs is the library code that actually performs the **owserver protocol**.
-//! Communication with **owserver** is over TCP/IP (network) using an efficient well-documented protocol.
-//!
-//! Supported operations are read, write, dir, present and size, with some variations
-//!
-//! The main struct is OwMessage which holds all the configuration information.
-//! Typically it is populated by the command line or configuration files
+//! Stream encapsulates the connection to an owserver
+//! * handles the persistent connection request (where the Tcp connection is reused if possible for efficiency)
+//! * holds a target adress
 //!
 //! ## EXAMPLES
+//! * New connection
 //! ```
-//! use owrust ; // basic library
-//! use owrust::parse_args ; // configure from command line, file or OsString
+//! use owrust::error::OwError;
+//! use owrust::message::stream ;
 //!
-//! let mut owserver = owrust::new() ; // create an OwMessage struct
-//!   // configure from command line and get 1-wire paths
-//! let paths = parse_args::command_line( &mut owserver ) ;
-//!   // Call any of the OwMessage functions like dir, read, write,...
+//! let mut stream_one_time = owrust::message::stream::Stream::new() ;
+//! stream_one_time.set_persistence(false);
+//! stream_one_time.set_target("locaalhost:4304");
+//! match stream_one_time.connect() {
+//!   Ok(_) => (), // connected ok
+//!   Err(_) => (), // connection failure
+//! }
 //!   ```
 
 // owrust project
@@ -35,8 +35,8 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::Write;
+use std::net::TcpStream;
 use std::time::Duration;
 
 pub use crate::error::{OwEResult, OwError};
@@ -47,117 +47,102 @@ pub use crate::error::{OwEResult, OwError};
 pub struct Stream {
     stream: Option<TcpStream>,
     persist: bool,
+    target: String,
 }
 
+/// Clone Stream object
+/// Creates Stream with same persistance and target but closed connection
 impl Clone for Stream {
     fn clone(&self) -> Self {
-        Stream { 
+        Stream {
             stream: None,
             persist: self.persist,
+            target: self.target.clone(),
         }
+    }
+}
+/// Default Stream
+impl Default for Stream {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl Stream {
-    fn new( persist: bool ) -> Self {
-        Stream{
+    /// ### new
+    /// Create a new Stream object with minimal properties
+    /// * Persistance defaults false
+    /// * stream set to None
+    /// * target set to None
+    pub fn new() -> Self {
+        Stream {
             stream: None,
-            persist,
-        }
-    }
-    
-    fn set_timeout ( &self ) -> OwEResult<()> {
-		if let Some(stream) = self.stream {
-			stream.set_read_timeout( Some(Duration::from_secs(5))) ? ;
-		}
-        Ok(())
-    }
-}
-
-    fn get_msg_single(&mut self) -> OwEResult<OwResponse> {
-        // Set timeout
-        self.set_timeout()?;
-        let stream = match self.stream.stream.as_mut() {
-            Some(s) => s,
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            }
-        };
-        let rcv = OwResponse::get(stream)?;
-        Ok(rcv)
-    }
-
-    // Loop through getting packets until payload empty
-    // for directories
-    fn get_msg_many(&mut self) -> OwEResult<OwResponse> {
-        // Set timeout
-        self.set_timeout()?;
-
-        let stream = match self.stream.stream.as_mut() {
-            Some(s) => s,
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            }
-        };
-        let mut full_rcv = OwResponse::get(stream)?;
-
-        if full_rcv.payload == 0 {
-            return Ok(full_rcv);
-        }
-
-        loop {
-            // get more packets and add content to first one, adjusting payload size
-            let mut rcv = OwResponse::get(stream)?;
-            if self.debug > 0 {
-                eprintln!("Another packet");
-            }
-            if rcv.payload == 0 {
-                return Ok(full_rcv);
-            }
-            full_rcv.content[(full_rcv.payload - 1) as usize] = b','; // trailing null -> comma
-            full_rcv.content.append(&mut rcv.content); // add this packet's info
-            full_rcv.payload += rcv.payload;
+            persist: false,
+            target: "localhost:4304".to_string(),
         }
     }
 
-    fn connect(&mut self) -> OwEResult<()> {
-        let stream = TcpStream::connect(&self.owserver)?;
-        self.stream.stream = Some(stream);
+    /// ### set_timeout
+    /// Set a 5 second timeout for getting response
+    /// * used for connections to an owserver
+    /// * ping message should be received as a "keep alive" to show still thinking
+    fn set_timeout(&self) -> OwEResult<()> {
+        if let Some(stream) = &self.stream {
+            stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+        }
         Ok(())
     }
 
-    fn send_packet(&mut self, mut msg: OwQuery) -> OwEResult<()> {
-        // Write to network
-        if self.debug > 1 {
-            eprintln!("about to connect");
-        }
-
-        // Create or reuse a connection
-        if self.persistence {
-            match self.stream.stream.as_mut() {
-                None => {
-                    // need initial connection
-                    self.connect()?;
-                }
-                Some(s) => {
-                    // test existing connection
-                    match s.write_all(&[]) {
-                        Ok(()) => {}
-                        Err(_) => {
-                            // recreate
-                            self.connect()?;
-                        }
-                    }
-                }
-            };
+    /// ### connect
+    /// Connect (via tcp network protocol) to a remote target
+    /// * Tests if persistence is on
+    ///   * test if connection still works
+    /// * returns TcpStream errors or ()
+    pub fn connect(&mut self) -> OwEResult<()> {
+        if self.stream.is_none() || !self.persist || !self.test() {
+            self.stream = None;
+            let stream = TcpStream::connect(&self.target)?;
+            self.stream = Some(stream);
+            self.set_timeout()
         } else {
-            // No persistence, make new connection
-            self.connect()?;
+            Ok(())
         }
-        if let Some(stream) = &mut self.stream.stream {
-            msg.send(stream)?;
-        }
-        Ok(())
     }
 
+    /// ### Set_persistence
+    /// Set persistence flag and clear stream for safety
+    /// Does not alter target
+    pub fn set_persistence(&mut self, persist: bool) {
+        self.persist = persist;
+        self.stream = None;
+    }
+
+    /// ### Set_target
+    /// Set target address and clear stream for safety
+    /// Does not alter persistence state
+    pub fn set_target(&mut self, target: &str) {
+        println!("Setting target: {}", target);
+        self.target = target.to_string();
+        self.stream = None;
+    }
+
+    /// ### get
+    /// Get the actual stream for communication
+    pub fn get(&mut self) -> Option<&mut TcpStream> {
+        self.stream.as_mut()
+    }
+
+    /// ### get_persistence
+    /// get persistence state for marking message flag
+    pub fn get_persistence(&self) -> bool {
+        self.persist
+    }
+
+    // test the connection (for persistent connctions to see if still valid)
+    fn test(&mut self) -> bool {
+        match self.stream.as_mut() {
+            Some(s) => matches!(s.write_all(&[]), Ok(())), // test existing connection
+            _ => false,
+        }
+    }
 }
