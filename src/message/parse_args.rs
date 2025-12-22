@@ -374,21 +374,21 @@ mod tests {
     fn noport_test() {
         let args: Vec<&str> = vec![];
         let owserver = crate::new();
-        let mut owserver2 = modified_messager(&owserver, args).unwrap();
+        let owserver2 = modified_messager(&owserver, args).unwrap();
         assert_eq!(owserver2.listener, None);
     }
     #[test]
     fn port_test() {
         let args: Vec<&str> = vec!["-p", "localhost:14304"];
         let owserver = crate::new();
-        let mut owserver2 = modified_messager(&owserver, args).unwrap();
+        let owserver2 = modified_messager(&owserver, args).unwrap();
         assert_eq!(owserver2.listener, Some("localhost:14304".to_string()));
     }
     #[test]
     fn port2_test() {
         let args: Vec<&str> = vec!["--port", "localhost:14304"];
         let owserver = crate::new();
-        let mut owserver2 = modified_messager(&owserver, args).unwrap();
+        let owserver2 = modified_messager(&owserver, args).unwrap();
         assert_eq!(owserver2.listener, Some("localhost:14304".to_string()));
     }
 }

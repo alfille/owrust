@@ -155,9 +155,9 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::parse_args;
-use std::io::{self, Write};
+use owrust::console::console_line;
 
-fn main() -> io::Result<()> {
+fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
 
     // configure and get paths
@@ -175,36 +175,20 @@ fn main() -> io::Result<()> {
     // add slash and persistence
     match parse_args::modified_messager(&owserver, vec!["--dir", "--persist"]) {
         Ok(mut new_server) => {
-            let mut output_handle = io::stdout().lock();
             for path in paths.into_iter() {
-                match from_path(&mut new_server, &mut output_handle, path) {
-                    Ok(_) => continue,
-                    Err(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
-                        // tolerate BrokenPipe for programs like "head"
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
+                from_path(&mut new_server, path);
             }
         }
         Err(e) => {
-            eprintln!("Could not set persistence and directory signal");
-            return Err(e.into());
+            eprintln!("Could not set persistence and directory signal: {}", e);
         }
     };
-    Ok(())
 }
 
 // start at path, printing and following directories recursively
-fn from_path<W: Write>(
-    owserver: &mut owrust::OwMessage,
-    output_handle: &mut W,
-    path: String,
-) -> io::Result<()> {
+fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     let root = File::root(path);
-    root.root_print(owserver, output_handle)
+    root.root_print(owserver);
 }
 
 #[derive(Debug, Clone)]
@@ -229,21 +213,11 @@ impl Dir {
         Dir { contents: vec![] }
     }
     // print each file in directory
-    fn print<W: Write>(
-        &self,
-        owserver: &mut owrust::OwMessage,
-        output_handle: &mut W,
-        prefix: &String,
-    ) -> io::Result<()> {
+    fn print(&self, owserver: &mut owrust::OwMessage, prefix: &String) {
         let len = self.contents.len();
         for (i, f) in self.contents.iter().enumerate() {
-            if i < len - 1 {
-                f.print(owserver, output_handle, prefix, false)?
-            } else {
-                f.print(owserver, output_handle, prefix, true)?
-            }
+            f.print(owserver, prefix, i == len - 1);
         }
-        Ok(())
     }
 }
 
@@ -294,29 +268,19 @@ impl File {
             dir: true,
         }
     }
-    fn root_print<W: Write>(
-        &self,
-        owserver: &mut owrust::OwMessage,
-        output_handle: &mut W,
-    ) -> io::Result<()> {
+    fn root_print(&self, owserver: &mut owrust::OwMessage) {
         // File
-        writeln!(output_handle, "{}", self.name)?;
+        console_line(&self.name);
         let dir = Dir::new(owserver, self.path.clone());
-        dir.print(owserver, output_handle, &"".to_string())
+        dir.print(owserver, &"".to_string());
     }
     // print each file with appropriate structure "prefix"
-    fn print<W: Write>(
-        &self,
-        owserver: &mut owrust::OwMessage,
-        output_handle: &mut W,
-        prefix: &String,
-        last: bool,
-    ) -> io::Result<()> {
+    fn print(&self, owserver: &mut owrust::OwMessage, prefix: &String, last: bool) {
         // File name printed
         if last {
-            writeln!(output_handle, "{}{}{}", prefix, END, self.name)?;
+            console_line(&format!("{}{}{}", prefix, END, self.name));
         } else {
-            writeln!(output_handle, "{}{}{}", prefix, NEXT, self.name)?;
+            console_line(&format!("{}{}{}", prefix, NEXT, self.name));
         }
         // Dir followed
         if self.dir {
@@ -325,9 +289,8 @@ impl File {
                 false => format!("{}{}", prefix, RGT),
             };
             let dir = Dir::new(owserver, self.path.clone());
-            dir.print(owserver, output_handle, &prefix)?;
+            dir.print(owserver, &prefix);
         }
-        Ok(())
     }
 }
 

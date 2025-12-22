@@ -668,6 +668,7 @@ impl OwServerInstance {
         // wait for responses
         match rcv.mtype {
             crate::message::query::OwQuery::DIR => {
+                // DIR gets multiple resonses, send them all back
                 loop {
                     if let Ok(mut resp) = self.message.get_msg_single() {
                         let _ = resp.send(&mut self.stream_in);
@@ -678,6 +679,7 @@ impl OwServerInstance {
                 }
             }
             _ => {
+                // send single response back
                 if let Ok(mut resp) = self.message.get_msg_single() {
                     let _ = resp.send(&mut self.stream_in);
                 }
