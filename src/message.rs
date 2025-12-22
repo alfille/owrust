@@ -36,7 +36,6 @@
 // {c} 2025 Paul H Alfille
 
 use ::std::thread;
-use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::str;
 use std::time::Duration;
@@ -606,6 +605,7 @@ impl OwMessage {
             for stream in listen_stream.incoming() {
                 match stream {
                     Ok(stream) => {
+                        // cloned owserver will have closed (outgoing) stream
                         let mut instance = OwServerInstance::new(self.clone(), stream);
                         thread::spawn(move || {
                             instance.handle_query();
@@ -628,15 +628,18 @@ impl OwMessage {
 
 struct OwServerInstance {
     message: crate::OwMessage,
-    stream: TcpStream,
+    stream_in: TcpStream,
 }
 impl OwServerInstance {
-    fn new(message: crate::OwMessage, stream: TcpStream) -> OwServerInstance {
-        OwServerInstance { message, stream }
+    fn new(message: crate::OwMessage, stream_in: TcpStream) -> OwServerInstance {
+        OwServerInstance { message, stream_in }
     }
     fn handle_query(&mut self) {
         // Set timeout
-        match self.stream.set_read_timeout(Some(Duration::from_secs(5))) {
+        match self
+            .stream_in
+            .set_read_timeout(Some(Duration::from_secs(5)))
+        {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Cannot set timeout to server query {}", e);
@@ -644,7 +647,8 @@ impl OwServerInstance {
             }
         }
 
-        let mut rcv = match OwQuery::get(&mut self.stream, self.message.token) {
+        // get Query
+        let mut rcv = match OwQuery::get(&mut self.stream_in, self.message.token) {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Could not read a packet. {}", e);
@@ -652,15 +656,31 @@ impl OwServerInstance {
             }
         };
 
+        // match persistence
+        self.message
+            .stream
+            .set_persistence(rcv.flags() & OwMessage::PERSISTENCE != 0);
+
+        // relay message on
         println!("{}", rcv.print_all("Query Message incoming"));
         let _ = self.message.send_packet(&mut rcv);
 
+        // wait for responses
         match rcv.mtype {
             crate::message::query::OwQuery::DIR => {
-                ();
+                loop {
+                    if let Ok(mut resp) = self.message.get_msg_single() {
+                        let _ = resp.send(&mut self.stream_in);
+                        if resp.payload() == 0 {
+                            break;
+                        }
+                    }
+                }
             }
             _ => {
-                ();
+                if let Ok(mut resp) = self.message.get_msg_single() {
+                    let _ = resp.send(&mut self.stream_in);
+                }
             }
         }
     }

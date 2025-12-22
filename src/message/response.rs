@@ -35,7 +35,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-pub use crate::error::{OwEResult, OwError};
+pub use crate::error::OwEResult;
 use crate::message::OwQuery;
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -54,6 +54,7 @@ pub(super) struct OwResponse {
     pub(super) content: Vec<u8>,
 }
 impl OwResponse {
+    #[allow(unused)]
     pub(super) fn new(flags: u32) -> Self {
         OwResponse {
             version: 1,
@@ -219,9 +220,11 @@ pub trait PrintMessage {
             format!("{:X}", self.version())
         }
     }
-    fn string_ret(&self) -> String {
-        format!("{}", self.ret())
-    }
+    /*
+        fn string_ret(&self) -> String {
+            format!("{}", self.ret())
+        }
+    */
     fn string_type(&self) -> String {
         match self.mtype() {
             OwQuery::NOP => "NOP".to_string(),

@@ -114,7 +114,6 @@ impl Stream {
     /// Does not alter target
     pub fn set_persistence(&mut self, persist: bool) {
         self.persist = persist;
-        self.stream = None;
     }
 
     /// ### Set_target
