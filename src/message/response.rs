@@ -76,28 +76,28 @@ impl OwResponse {
         static HSIZE: usize = 24;
         let mut buffer: [u8; HSIZE] = [0; HSIZE];
 
-		// Take first 24 bytes of buffer to fill header
-		stream.read_exact(&mut buffer)?;
-		let mut rcv = OwResponse {
-			version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
-			payload: i32::from_be_bytes(buffer[4..8].try_into().unwrap()),
-			ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
-			flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-			size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-			offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
-			content: [].to_vec(),
-		};
+        // Take first 24 bytes of buffer to fill header
+        stream.read_exact(&mut buffer)?;
+        let mut rcv = OwResponse {
+            version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+            payload: i32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+            ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
+            flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+            size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+            offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+            content: [].to_vec(),
+        };
 
-		// read payload
-		if rcv.payload > 0 {
-			// create Vec with just the right size (based on payload)
-			rcv.content = Vec::with_capacity(rcv.payload as usize);
-			rcv.content.resize(rcv.payload as usize, 0);
+        // read payload
+        if rcv.payload > 0 {
+            // create Vec with just the right size (based on payload)
+            rcv.content = Vec::with_capacity(rcv.payload as usize);
+            rcv.content.resize(rcv.payload as usize, 0);
 
-			stream.read_exact(&mut rcv.content)?;
-		}
+            stream.read_exact(&mut rcv.content)?;
+        }
 
-		Ok(rcv)
+        Ok(rcv)
     }
 
     /// ### get
@@ -106,13 +106,13 @@ impl OwResponse {
     /// * read payload
     /// * ignore pings
     pub fn get(stream: &mut TcpStream) -> OwEResult<OwResponse> {
-		loop {
-			let rcv = Self::get_plus_ping( stream ) ? ;
-			if rcv.payload >= 0 {
-				// non-ping
-				return Ok(rcv) ;
-			}
-		}
+        loop {
+            let rcv = Self::get_plus_ping(stream)?;
+            if rcv.payload >= 0 {
+                // non-ping
+                return Ok(rcv);
+            }
+        }
     }
 
     /// ### send
@@ -170,7 +170,7 @@ pub trait PrintMessage {
 
     /// ### print_all
     /// Shows message contents
-    fn print_all(&self, title: &str) -> String {
+    fn print_all(&self, title: &str) -> [String;4] {
         [
             format!("{} {}", title, self.line1()),
             self.line2().to_string(),
@@ -180,8 +180,6 @@ pub trait PrintMessage {
             ),
             self.line3().to_string(),
         ]
-        .join("\n")
-        .to_string()
     }
 
     fn line1(&self) -> String {
@@ -294,7 +292,7 @@ mod tests {
     #[test]
     fn test_blank_response() {
         let resp = OwResponse::new(0x10101010 as u32);
-        let desc = resp.print_all("Test Response");
+        let desc = resp.print_all("Test Response").join("\n").to_string();
         assert_eq!( desc, "Test Response  Version: 1\nUNKNOWN message number 0\nFlags: C psi f.i   safe   \nPayload:0 Size:0 Offset:0".to_string() );
     }
 }

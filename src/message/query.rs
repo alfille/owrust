@@ -145,46 +145,46 @@ impl OwQuery {
         static HSIZE: usize = 24;
         let mut buffer: [u8; HSIZE] = [0; HSIZE];
 
-		stream.read_exact(&mut buffer)?;
-		let mut rcv = OwQuery {
-			version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
-			payload: i32::from_be_bytes(buffer[4..8].try_into().unwrap()),
-			mtype: u32::from_be_bytes(buffer[8..12].try_into().unwrap()),
-			flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-			size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-			offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
-			content: [].to_vec(),
-			tokenlist: [].to_vec(),
-		};
+        stream.read_exact(&mut buffer)?;
+        let mut rcv = OwQuery {
+            version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+            payload: i32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+            mtype: u32::from_be_bytes(buffer[8..12].try_into().unwrap()),
+            flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+            size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+            offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+            content: [].to_vec(),
+            tokenlist: [].to_vec(),
+        };
 
-		// read payload
-		if rcv.payload > 0 {
-			// create Vec with just the right size (based on payload)
-			rcv.content = Vec::with_capacity(rcv.payload as usize);
-			rcv.content.resize(rcv.payload as usize, 0);
+        // read payload
+        if rcv.payload > 0 {
+            // create Vec with just the right size (based on payload)
+            rcv.content = Vec::with_capacity(rcv.payload as usize);
+            rcv.content.resize(rcv.payload as usize, 0);
 
-			stream.read_exact(&mut rcv.content)?;
-		}
+            stream.read_exact(&mut rcv.content)?;
+        }
 
-		// read tokens
-		if (rcv.version & crate::message::SERVERMESSAGE) == crate::message::SERVERMESSAGE {
-			let toks = rcv.version & crate::message::SERVERTOKENS;
-			for _ in 0..toks {
-				let mut tok: Token = [0u8; 16];
-				stream.read_exact(&mut tok)?;
-				rcv.tokenlist.push(tok)
-			}
-		}
+        // read tokens
+        if (rcv.version & crate::message::SERVERMESSAGE) == crate::message::SERVERMESSAGE {
+            let toks = rcv.version & crate::message::SERVERTOKENS;
+            for _ in 0..toks {
+                let mut tok: Token = [0u8; 16];
+                stream.read_exact(&mut tok)?;
+                rcv.tokenlist.push(tok)
+            }
+        }
 
-		// test token
-		if rcv.tokenlist.contains(&token) {
-			return Err(OwError::General("Loop in owserver topology".to_string()));
-		}
+        // test token
+        if rcv.tokenlist.contains(&token) {
+            return Err(OwError::General("Loop in owserver topology".to_string()));
+        }
 
-		// Add our token
-		rcv.add_token(token);
+        // Add our token
+        rcv.add_token(token);
 
-		Ok(rcv)
+        Ok(rcv)
     }
 
     /// ### get
@@ -198,11 +198,11 @@ impl OwQuery {
         // get a single non-ping message.
         // May need multiple for directories
         loop {
-			let rcv = Self::get_plus_ping( stream, token )? ;
-			if rcv.payload >= 0 {
-				return Ok(rcv) ;
-			}
-		}
+            let rcv = Self::get_plus_ping(stream, token)?;
+            if rcv.payload >= 0 {
+                return Ok(rcv);
+            }
+        }
     }
 
     /// ### send
@@ -284,7 +284,7 @@ mod tests {
     fn test_blank_query() {
         let query =
             OwQuery::new(0x10101010 as u32, OwQuery::READ, Some("/"), None, [0u8; 16]).unwrap();
-        let desc = query.print_all("Test Query");
+        let desc = query.print_all("Test Query").join("\n").to_string();
         assert_eq!( desc, "Test Query  Version: 10001 tokens=1\nReturn code = 2\nFlags: C psi f.i   safe   \nPayload:1 Size:65536 Offset:0".to_string() );
     }
 }

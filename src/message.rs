@@ -36,9 +36,8 @@
 // {c} 2025 Paul H Alfille
 
 use ::std::thread;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::str;
-use std::time::Duration;
 
 mod response;
 use response::OwResponse;
@@ -46,11 +45,13 @@ use response::OwResponse;
 mod query;
 use query::OwQuery;
 
+mod server;
+use server::OwServerInstance;
+
 pub mod stream;
 use stream::Stream;
 
 pub use crate::error::{OwEResult, OwError};
-use crate::message::response::PrintMessage;
 
 pub mod parse_args;
 
@@ -355,7 +356,20 @@ impl OwMessage {
         self.get_msg_many()
     }
 
+    // non-ping response
     fn get_msg_single(&mut self) -> OwEResult<OwResponse> {
+        let stream = match self.stream.get() {
+            Some(s) => s,
+            None => {
+                return Err(OwError::General("No Tcp stream defined".to_string()));
+            }
+        };
+        let rcv = OwResponse::get(stream)?;
+        Ok(rcv)
+    }
+
+    // any response including ping
+    fn get_msg_any(&mut self) -> OwEResult<OwResponse> {
         let stream = match self.stream.get() {
             Some(s) => s,
             None => {
@@ -369,21 +383,14 @@ impl OwMessage {
     // Loop through getting packets until payload empty
     // for directories
     fn get_msg_many(&mut self) -> OwEResult<OwResponse> {
-        let stream = match self.stream.get() {
-            Some(s) => s,
-            None => {
-                return Err(OwError::General("No Tcp stream defined".to_string()));
-            }
-        };
-        let mut full_rcv = OwResponse::get(stream)?;
-
+        let mut full_rcv = self.get_msg_single()?;
         if full_rcv.payload == 0 {
             return Ok(full_rcv);
         }
 
         loop {
             // get more packets and add content to first one, adjusting payload size
-            let mut rcv = OwResponse::get(stream)?;
+            let mut rcv = self.get_msg_single()?;
             if self.debug > 0 {
                 eprintln!("Another packet");
             }
@@ -623,68 +630,6 @@ impl OwMessage {
             ));
         }
         Ok(())
-    }
-}
-
-struct OwServerInstance {
-    message: crate::OwMessage,
-    stream_in: TcpStream,
-}
-impl OwServerInstance {
-    fn new(message: crate::OwMessage, stream_in: TcpStream) -> OwServerInstance {
-        OwServerInstance { message, stream_in }
-    }
-    fn handle_query(&mut self) {
-        // Set timeout
-        match self
-            .stream_in
-            .set_read_timeout(Some(Duration::from_secs(5)))
-        {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Cannot set timeout to server query {}", e);
-                return;
-            }
-        }
-
-        // get Query
-        let mut rcv = match OwQuery::get(&mut self.stream_in, self.message.token) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("Could not read a packet. {}", e);
-                return;
-            }
-        };
-
-        // match persistence
-        self.message
-            .stream
-            .set_persistence(rcv.flags() & OwMessage::PERSISTENCE != 0);
-
-        // relay message on
-        println!("{}", rcv.print_all("Query Message incoming"));
-        let _ = self.message.send_packet(&mut rcv);
-
-        // wait for responses
-        match rcv.mtype {
-            crate::message::query::OwQuery::DIR => {
-                // DIR gets multiple resonses, send them all back
-                loop {
-                    if let Ok(mut resp) = self.message.get_msg_single() {
-                        let _ = resp.send(&mut self.stream_in);
-                        if resp.payload() == 0 {
-                            break;
-                        }
-                    }
-                }
-            }
-            _ => {
-                // send single response back
-                if let Ok(mut resp) = self.message.get_msg_single() {
-                    let _ = resp.send(&mut self.stream_in);
-                }
-            }
-        }
     }
 }
 

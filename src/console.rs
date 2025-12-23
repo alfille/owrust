@@ -55,7 +55,7 @@ fn handle_io_result(result: io::Result<()>) {
 /// use owrust::console_line;
 /// console_line("Hello");
 ///```
-pub fn console_line<S>(message: S) 
+pub fn console_line<S>(message: S)
 where
     S: AsRef<str>,
 {

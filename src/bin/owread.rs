@@ -64,8 +64,8 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+use owrust::console::console_line;
 use owrust::parse_args;
-use owrust::console::console_line ;
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
