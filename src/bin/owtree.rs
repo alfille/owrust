@@ -154,8 +154,8 @@
 // This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
-use owrust::parse_args;
 use owrust::console::console_line;
+use owrust::parse_args;
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication

@@ -106,6 +106,7 @@
 // This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
+use owrust::console::console_lines;
 use owrust::parse_args;
 
 fn main() {
@@ -133,7 +134,7 @@ fn main() {
 // print 1-wire directory contents
 fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     match owserver.dirall(&path) {
-        Ok(files) => println!("{}", files.join("\n")),
+        Ok(files) => console_lines(files),
         Err(e) => eprintln!("Trouble with path {} Error {}", path, e),
     }
 }
