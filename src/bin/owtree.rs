@@ -278,9 +278,9 @@ impl File {
     fn print(&self, owserver: &mut owrust::OwMessage, prefix: &String, last: bool) {
         // File name printed
         if last {
-            console_line(&format!("{}{}{}", prefix, END, self.name));
+            console_line(format!("{}{}{}", prefix, END, self.name));
         } else {
-            console_line(&format!("{}{}{}", prefix, NEXT, self.name));
+            console_line(format!("{}{}{}", prefix, NEXT, self.name));
         }
         // Dir followed
         if self.dir {

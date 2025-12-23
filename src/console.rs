@@ -49,18 +49,21 @@ fn handle_io_result(result: io::Result<()>) {
 /// ### write_line
 /// Simple single line output
 /// * atomic output to stdout
-/// * &str input
+/// * string-like input (&str, String,...)
 /// #### Example
 /// ```
 /// use owrust::console_line;
 /// console_line("Hello");
 ///```
-pub fn console_line(message: &str) {
+pub fn console_line<S>(message: S) 
+where
+    S: AsRef<str>,
+{
     // aquire mutex
     let mut guard = get_handle().lock().expect("Mutex poisoned");
 
     // Use writeln! and pass the result to our handler
-    let result = writeln!(guard, "{}", message);
+    let result = writeln!(guard, "{}", message.as_ref());
     handle_io_result(result);
 }
 

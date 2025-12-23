@@ -65,6 +65,7 @@
 // {c} 2025 Paul H Alfille
 
 use owrust::parse_args;
+use owrust::console::console_line ;
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
@@ -93,7 +94,7 @@ fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     match owserver.read(&path) {
         Ok(values) => match owserver.show_result(values) {
             Ok(s) => {
-                println!("{}", s);
+                console_line(s);
             }
             Err(e) => {
                 eprintln!("Reading error {}", e);

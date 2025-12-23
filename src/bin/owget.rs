@@ -65,6 +65,7 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::parse_args;
+use owrust::console::console_line;
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
@@ -94,7 +95,7 @@ fn from_path(owserver: &mut owrust::OwMessage, path: String) {
         Ok(value) => {
             match String::from_utf8(value) {
                 Ok(v) => {
-                    println!("{}", v);
+                    console_line(v);
                 }
                 Err(e) => {
                     eprintln!("Unprintable string {}", e);

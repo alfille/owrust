@@ -46,7 +46,7 @@ use std::net::TcpStream;
 #[derive(Debug, PartialEq, Clone)]
 pub(super) struct OwResponse {
     pub(super) version: u32,
-    pub(super) payload: u32,
+    pub(super) payload: i32,
     pub(super) ret: i32,
     pub(super) flags: u32,
     pub(super) size: u32,
@@ -67,47 +67,52 @@ impl OwResponse {
         }
     }
 
+    /// ### get_plus_ping
+    /// Get a RESPONSE message from the network and parse it:
+    /// * read header ( 6 words), translated from network order
+    /// * read payload
+    /// * include pings
+    pub fn get_plus_ping(stream: &mut TcpStream) -> OwEResult<OwResponse> {
+        static HSIZE: usize = 24;
+        let mut buffer: [u8; HSIZE] = [0; HSIZE];
+
+		// Take first 24 bytes of buffer to fill header
+		stream.read_exact(&mut buffer)?;
+		let mut rcv = OwResponse {
+			version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
+			payload: i32::from_be_bytes(buffer[4..8].try_into().unwrap()),
+			ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
+			flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
+			size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
+			offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
+			content: [].to_vec(),
+		};
+
+		// read payload
+		if rcv.payload > 0 {
+			// create Vec with just the right size (based on payload)
+			rcv.content = Vec::with_capacity(rcv.payload as usize);
+			rcv.content.resize(rcv.payload as usize, 0);
+
+			stream.read_exact(&mut rcv.content)?;
+		}
+
+		Ok(rcv)
+    }
+
     /// ### get
     /// Get a RESPONSE message from the network and parse it:
     /// * read header ( 6 words), translated from network order
     /// * read payload
     /// * ignore pings
     pub fn get(stream: &mut TcpStream) -> OwEResult<OwResponse> {
-        // get a single non-ping message.
-        // May need multiple for directories
-        static HSIZE: usize = 24;
-        let mut buffer: [u8; HSIZE] = [0; HSIZE];
-
-        loop {
-            // Take first 24 bytes of buffer to fill header
-            stream.read_exact(&mut buffer)?;
-            let mut rcv = OwResponse {
-                version: u32::from_be_bytes(buffer[0..4].try_into().unwrap()),
-                payload: u32::from_be_bytes(buffer[4..8].try_into().unwrap()),
-                ret: u32::from_be_bytes(buffer[8..12].try_into().unwrap()) as i32,
-                flags: u32::from_be_bytes(buffer[12..16].try_into().unwrap()),
-                size: u32::from_be_bytes(buffer[16..20].try_into().unwrap()),
-                offset: u32::from_be_bytes(buffer[20..24].try_into().unwrap()),
-                content: [].to_vec(),
-            };
-
-            // read payload
-            if rcv.payload > 0 {
-                // create Vec with just the right size (based on payload)
-                rcv.content = Vec::with_capacity(rcv.payload as usize);
-                rcv.content.resize(rcv.payload as usize, 0);
-
-                stream.read_exact(&mut rcv.content)?;
-            }
-
-            // test ping message (ignore -- it's a keepalive)
-            if (rcv.payload as i32) < 0 {
-                // ping
-                continue;
-            }
-
-            return Ok(rcv);
-        }
+		loop {
+			let rcv = Self::get_plus_ping( stream ) ? ;
+			if rcv.payload >= 0 {
+				// non-ping
+				return Ok(rcv) ;
+			}
+		}
     }
 
     /// ### send
@@ -117,7 +122,7 @@ impl OwResponse {
     pub(super) fn send(&mut self, stream: &mut TcpStream) -> OwEResult<()> {
         let mut msg: Vec<u8> = [
             self.version,
-            self.payload,
+            self.payload as u32,
             self.ret as u32,
             self.flags,
             self.size,
@@ -151,7 +156,7 @@ pub trait PrintMessage {
     // Getters
     fn version(&self) -> u32;
     fn flags(&self) -> u32;
-    fn payload(&self) -> u32;
+    fn payload(&self) -> i32;
     fn mtype(&self) -> u32 {
         self.ret() as u32
     }
@@ -200,7 +205,7 @@ pub trait PrintMessage {
         String::from_utf8_lossy(self.content()).to_string()
     }
     fn string_path_pair(&self) -> (String, String) {
-        let path_len: usize = ((self.payload() as i32) - (self.size() as i32)) as usize;
+        let path_len: usize = (self.payload() - (self.size() as i32)) as usize;
         let first: String = String::from_utf8_lossy(&self.content()[..path_len]).to_string();
         let second: String = self.content()[path_len..self.payload() as usize]
             .iter()
@@ -264,7 +269,7 @@ impl PrintMessage for OwResponse {
     fn offset(&self) -> u32 {
         self.offset
     }
-    fn payload(&self) -> u32 {
+    fn payload(&self) -> i32 {
         self.payload
     }
     fn size(&self) -> u32 {
