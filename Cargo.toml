@@ -1,9 +1,9 @@
 [package]
 name = "owrust"
 version = "0.1.0"
-authors = "Paul H Alfille paul.alfille@gmail.com"
-edition = "2024"
-rust-version = "1.7.0"
+authors = ["Paul H Alfille <paul.alfille@gmail.com>"]
+edition = "2021"
+rust-version = "1.85.0"
 description = "1-wire OWFS Rust language command line utilities and library to communicate with owserver"
 documentation = "https://alfille.github.io/owrust/index.html"
 repository = "https://github.com/alfille/owrust"
@@ -13,10 +13,10 @@ categories = ["hardware-support", "network-programming"]
 readme = "README.md"
 
 [dependencies]
-pico-args = "0.5" # Use the latest version
-md-5 = "0.10" # Or latest version
+pico-args = "0.5.0" # Use the latest version
+md-5 = "0.10.6" # Or latest version
 rand = "0.8" # for random salt
-bytemuck = "1.15"
+bytemuck = "1.24"
 
 [dev-dependencies]
 # Add testing dependencies
