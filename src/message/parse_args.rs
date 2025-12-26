@@ -178,53 +178,16 @@ Read a virtual 1-wire directory from owserver.
         eprintln!("Debuging level {}", owserver.debug);
     }
 
-    // Temperature
-    if args.contains(["-C", "--Celsius"]) {
-        owserver.temperature = super::Temperature::CELSIUS;
-    }
-    if args.contains(["-F", "--Farenheit"]) {
-        owserver.temperature = super::Temperature::FARENHEIT;
-    }
-    if args.contains(["-K", "--Kelvin"]) {
-        owserver.temperature = super::Temperature::KELVIN;
-    }
-    if args.contains(["-R", "--Rankine"]) {
-        owserver.temperature = super::Temperature::RANKINE;
-    }
-
-    // Pressure
-    if args.contains("--mmhg") {
-        owserver.pressure = super::Pressure::MMHG;
-    }
-    if args.contains("--inhg") {
-        owserver.pressure = super::Pressure::INHG;
-    }
-    if args.contains("--mbar") {
-        owserver.pressure = super::Pressure::MBAR;
-    }
-    if args.contains("--atm") {
-        owserver.pressure = super::Pressure::ATM;
-    }
-    if args.contains("--pa") {
-        owserver.pressure = super::Pressure::PA;
-    }
-    if args.contains("--psi") {
-        owserver.pressure = super::Pressure::PSI;
-    }
-
-    // Format
-    let d = args.opt_value_from_fn(["-f", "--format"], parse_device)?;
-    owserver.format = d.unwrap_or(super::Format::DEFAULT);
+	parser_temperature( owserver, &mut args ) ? ;
+	parser_pressure( owserver, &mut args ) ? ;
+	parser_format( owserver, &mut args ) ? ;
+	parser_data( owserver, &mut args ) ? ;
 
     // Persist
     if args.contains("--persist") {
         owserver.stream.set_persistence(true);
     }
 
-    // Display
-    if args.contains("--hex") {
-        owserver.hex = true;
-    }
     if args.contains("--dir") {
         owserver.slash = true;
     }
@@ -272,6 +235,103 @@ Read a virtual 1-wire directory from owserver.
 
     owserver.make_flags();
     Ok(result)
+}
+
+fn parser_temperature(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    // Handle the help flag first
+    let mut args_clone = args.clone() ;
+    if args_clone.contains(["-h", "--help"]) {
+		println!("Temperature Scale (default Celsius)");
+		println!("\t-C\t--celsius");
+		println!("\t-F\t--fahrenheit");
+		println!("\t-K\t--kelvin");
+		println!("\t-R\t--rankine");
+		println!("");
+		return Ok(());
+	}
+    // Temperature
+    if args.contains(["-C", "--Celsius"]) {
+        owserver.temperature = super::Temperature::CELSIUS;
+    }
+    if args.contains(["-F", "--Farenheit"]) {
+        owserver.temperature = super::Temperature::FARENHEIT;
+    }
+    if args.contains(["-K", "--Kelvin"]) {
+        owserver.temperature = super::Temperature::KELVIN;
+    }
+    if args.contains(["-R", "--Rankine"]) {
+        owserver.temperature = super::Temperature::RANKINE;
+    }
+	Ok(())
+}
+
+fn parser_pressure(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    // Handle the help flag first
+    let mut args_clone = args.clone() ;
+    if args_clone.contains(["-h", "--help"]) {
+		println!("Pressure Scale (default mBar)");
+		println!("\t-mmhg  mm Mercury");
+		println!("\t-inhg  inches Mercury");
+		println!("\t-mbar  mili Bar");
+		println!("\t-atm   atmospheres");
+		println!("\t-ps    Pascals");
+		println!("\t-psi   pounds / in^2");
+		println!("");
+		return Ok(());
+	}
+    // Pressure
+    if args.contains("--mmhg") {
+        owserver.pressure = super::Pressure::MMHG;
+    }
+    if args.contains("--inhg") {
+        owserver.pressure = super::Pressure::INHG;
+    }
+    if args.contains("--mbar") {
+        owserver.pressure = super::Pressure::MBAR;
+    }
+    if args.contains("--atm") {
+        owserver.pressure = super::Pressure::ATM;
+    }
+    if args.contains("--pa") {
+        owserver.pressure = super::Pressure::PA;
+    }
+    if args.contains("--psi") {
+        owserver.pressure = super::Pressure::PSI;
+    }
+    Ok(())
+}
+
+fn parser_format(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    // Handle the help flag first
+    let mut args_clone = args.clone() ;
+    if args_clone.contains(["-h", "--help"]) {
+		println!("Device format displayed");
+		println!("\t-f\t--format");
+		println!("\t\t\tfi | f.i");
+		println!("\t\t\tfic | fi.c | f.ic | f.i.c");
+		println!("");
+		return Ok(());
+	}
+    // Format
+    let d = args.opt_value_from_fn(["-f", "--format"], parse_device)?;
+    owserver.format = d.unwrap_or(super::Format::DEFAULT);
+    Ok(())
+}
+
+fn parser_data(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    // Handle the help flag first
+    let mut args_clone = args.clone() ;
+    if args_clone.contains(["-h", "--help"]) {
+		println!("Data display (default text");
+		println!("\t--hex\tShow hexidecimal bytes");
+		println!("");
+		return Ok(());
+	}
+    // Display
+    if args.contains("--hex") {
+        owserver.hex = true;
+    }
+    Ok(())
 }
 
 fn parse_device(s: &str) -> OwEResult<super::Format> {
