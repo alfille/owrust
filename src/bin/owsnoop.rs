@@ -52,12 +52,14 @@ fn main() {
     // configure and get paths
     match parse_args::command_line(&mut owserver) {
         Ok(paths) => {
-            if ! paths.is_empty() {
+            if !paths.is_empty() {
                 // Path not supported in owsnoop
                 eprintln!("Path not supported in onsnoop, only -p and -s)");
-				return;
-			}
-			owserver.listen().expect("No listening address given (e.g. -p localhost:14304)");
+                return;
+            }
+            owserver
+                .listen()
+                .expect("No listening address given (e.g. -p localhost:14304)");
         }
         Err(e) => {
             eprintln!("owsnoop parameter trouble {}", e);

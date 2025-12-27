@@ -36,8 +36,8 @@
 // {c} 2025 Paul H Alfille
 
 use md5::{Digest, Md5};
-use rand::RngCore;
 use rand::rngs::OsRng;
+use rand::RngCore;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::message::Token;

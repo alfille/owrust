@@ -12,40 +12,6 @@ use pico_args::Arguments;
 use std::ffi::OsString;
 use std::{env, process};
 
-const HELP: &str = "\
-.
-OPTIONS:
--s --server IPaddress:port (default localhost:4304)
-
-Temperature scale
-  -C, --Celsius
-  -F, --Farenheit
-  -K, --Kelvin
-  -R, --Rankine
-  
-Format serial number
-  f(amily) i(d) c(hecksum
-  -f, --format fi | f.i | fic | f.ic | fi.c | f.i.c
-  
-Display
-  --dir    Add a directory separator (/) after directories
-  --hex    Display values read in hexidecimal
-  --size   Max size (in bytes) of returned field (truncate if needed)
-  --offset Position in field to start returned value (for long memory contents)
-  --bare   Show only 1-wire devices, not virtual directories
-             also suppress convenience properties like `id`, `crc`, etc.
-  --prune  Suppresses bus, id, crc,address and location (only for DIR and DIRALL)
-  --persist Keep the connection to owserver live rather than reestablishing
-             for every query. Improves performance. 
-
-Pressure
-    --mbar --mmhg --inhg --atm --pa --psi
-  
-OTHER
-  -h, --help  This help message
-  -d, --debug Internal process information (more times gives more info)
-";
-
 /// ### command_line
 /// * Argument OwMessage structure (mutable)
 /// * Uses command line arguments as source
@@ -62,8 +28,8 @@ OTHER
 /// ```
 pub fn command_line(owserver: &mut crate::OwMessage) -> OwEResult<Vec<String>> {
     // normal path -- from environment
-    let args = Arguments::from_env();
-    parser(owserver, args)
+    let mut args = Arguments::from_env();
+    parser(owserver, &mut args)
 }
 
 /// ### vector_line
@@ -89,7 +55,7 @@ pub fn vector_line(owserver: &mut crate::OwMessage, args: Vec<&str>) -> OwEResul
     // normal path -- from environment
     // convert Vec<String> to Vec<OsString>
     let os_args: Vec<OsString> = args.iter().map(OsString::from).collect();
-    parser(owserver, Arguments::from_vec(os_args))
+    parser(owserver, &mut Arguments::from_vec(os_args))
 }
 
 /// ### modified_messager
@@ -105,71 +71,184 @@ pub fn modified_messager(
     Ok(clone)
 }
 
-fn progname() -> String {
+fn progname() -> Option<String> {
     match env::current_exe() {
-        Ok(path) => {
-            // Get the full path (e.g., /path/to/my_app)
-            // Extract the filename component (e.g., my_app)
-            if let Some(name) = path.file_name() {
-                name.to_string_lossy().into_owned()
-            } else {
-                "<no_name>".to_string()
-            }
+        Ok(path) =>
+        // Get the full path (e.g., /path/to/my_app)
+        // Extract the filename component (e.g., my_app)
+        {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
         }
-        Err(_) => "BadEnv".to_string(),
+        _ => None,
     }
 }
 
-fn parser(owserver: &mut crate::OwMessage, mut args: Arguments) -> OwEResult<Vec<String>> {
-    // Handle the help flag first
-    if args.contains(["-h", "--help"]) {
-        let p = progname();
-        let pre_help = match &p[..] {
-            "owdir" => format!(
-                "\
-{} [OPTIONS] <1-wire path>
-Read a virtual 1-wire directory using owserver.
-            ",
-                p
-            ),
-            "owread" => format!(
-                "\
-{} [OPTIONS] <1-wire path>
-Read a 1-wire device value using owserver.
-            ",
-                p
-            ),
-            "owwrite" => format!(
-                "\
-{} [OPTIONS] <1-wire path> <value>
-Write a value to a 1-wire device field using owserver.
-            ",
-                p
-            ),
-            "owget" => format!(
-                "\
-{} [OPTIONS] <1-wire path>
-Read a directory or value from 1-wire (depending on the path) using owserver.
-            ",
-                p
-            ),
-            "owsnoop" => format!(
-                "\
-{} [OPTIONS] -p | --port address:port (e.g. localhost:14304)
-Inspect owserver messages as they pass through. Serves as an owserver intermediary.
-            ",
-                p
-            ),
-            &_ => format!(
-                "\
-{} [OPTIONS] <1-wire path>
-Read a virtual 1-wire directory from owserver.
-            ",
-                p
-            ),
+fn arg_dir(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owdir [OPTIONS] [PATH]",
+            "\tList a 1-wire directory using owserver",
+            "\tMore than one PATH can be given",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_directory(owserver, args)?;
+    parser_format(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn arg_read(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owread [OPTIONS] [PATH]",
+            "\tRead a 1-wire file using owserver",
+            "\ttypically a sensor or memory reading",
+            "\tMore than one PATH can be given",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_temperature(owserver, args)?;
+    parser_pressure(owserver, args)?;
+    parser_data(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn arg_write(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owread [OPTIONS] [PATH] [Value]...",
+            "\tWrite to a 1-wire file using owserver",
+            "\tto set device memory or configuration",
+            "\tMore than one PATH VALUE pair can be given",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_temperature(owserver, args)?;
+    parser_pressure(owserver, args)?;
+    parser_data(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn arg_get(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owget [OPTIONS] [PATH]",
+            "\tList a 1-wire directory or read a value using owserver",
+            "\tcombined function of owread and owdir depending on PATH",
+            "\tMore than one PATH can be given",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_directory(owserver, args)?;
+    parser_format(owserver, args)?;
+    parser_temperature(owserver, args)?;
+    parser_pressure(owserver, args)?;
+    parser_data(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn arg_present(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owpresent [OPTIONS] [PATH]",
+            "\tIs the 1-wire file valid using owserver",
+            "\tMore than one PATH can be given",
+            "\tReturns 0 (false) or 1 (true)",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn arg_size(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owsize [OPTIONS] [PATH]",
+            "\tHow much data would a read potentially return (in bytes)",
+            "\tMore than one PATH can be given",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn arg_snoop(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owsnoop {OPTIONS]",
+            "\tRelay queries to owserver",
+            "\tShows the message contents back and forth",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_listener(owserver, args)?;
+    Ok(())
+}
+
+fn arg_lib(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    let _ = helper(
+        args,
+        &[
+            "owrust library {OPTIONS]",
+            "Configure library",
+            "",
+            "OPTIONS",
+        ],
+    );
+    parser_server(owserver, args)?;
+    parser_listener(owserver, args)?;
+    parser_format(owserver, args)?;
+    parser_temperature(owserver, args)?;
+    parser_pressure(owserver, args)?;
+    parser_data(owserver, args)?;
+    parser_directory(owserver, args)?;
+    parser_persist(owserver, args)?;
+    Ok(())
+}
+
+fn parser(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<Vec<String>> {
+    // Choose the options and help message based on the program calling this function
+    if let Some(prog) = progname() {
+        match prog.as_str() {
+            "owdir" => arg_dir(owserver, args)?,
+            "owget" => arg_get(owserver, args)?,
+            "owread" => arg_read(owserver, args)?,
+            "owwrite" => arg_write(owserver, args)?,
+            "owpresent" => arg_present(owserver, args)?,
+            "owsize" => arg_size(owserver, args)?,
+            "owsnoop" => arg_snoop(owserver, args)?,
+            _ => arg_lib(owserver, args)?,
         };
-        println!("{}{}", pre_help, HELP);
-        process::exit(0);
+    } else {
+        arg_lib(owserver, args)?;
     }
 
     // debug
@@ -178,50 +257,20 @@ Read a virtual 1-wire directory from owserver.
         eprintln!("Debuging level {}", owserver.debug);
     }
 
-	parser_temperature( owserver, &mut args ) ? ;
-	parser_pressure( owserver, &mut args ) ? ;
-	parser_format( owserver, &mut args ) ? ;
-	parser_data( owserver, &mut args ) ? ;
-
-    // Persist
-    if args.contains("--persist") {
-        owserver.stream.set_persistence(true);
+    // Handle the help flag for the trailing message
+    if args.contains(["-h", "--help"]) {
+        println!();
+        println!("General");
+        println!("\t-h\t--help\tThis help message");
+        println!("\t-d\t--debug\tShow debugging information");
+        println!();
+        println!("See https://github.com/alfille/owrust for more information");
+        process::exit(0);
     }
 
-    if args.contains("--dir") {
-        owserver.slash = true;
-    }
-    if args.contains("--bare") {
-        owserver.bare = true;
-    }
-    if args.contains("--prune") {
-        owserver.bare = true;
-        owserver.prune = true;
-    }
-    let y = args.opt_value_from_str("--size")?;
-    if let Some(x) = y {
-        owserver.size = x;
-    }
-
-    let y = args.opt_value_from_str("--offset")?;
-    if let Some(x) = y {
-        owserver.offset = x;
-    }
-
-    // Server
-    let serv: Option<String> = args.opt_value_from_str(["-s", "--server"])?;
-    if let Some(s) = serv {
-        owserver.stream.set_target(&s);
-    }
-
-    // Listener
-    let listener: Option<String> = args.opt_value_from_str(["-p", "--port"])?;
-    if listener.is_some() {
-        owserver.listener = listener;
-    }
-
+    // Gather PATH (and VALUES if owwrite) for return
     let mut result: Vec<String> = Vec::new();
-    for os in args.finish() {
+    for os in args.clone().finish() {
         match os.into_string() {
             Ok(s) => result.push(s),
             Err(_e) => {
@@ -233,103 +282,130 @@ Read a virtual 1-wire directory from owserver.
         eprintln!("{} path entries", result.len());
     }
 
+    // owserver use configuration information to set up message parameters
     owserver.make_flags();
     Ok(result)
 }
 
-fn parser_temperature(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
-    // Handle the help flag first
-    let mut args_clone = args.clone() ;
+// Write a help message if resuired (from the supplied text)
+fn helper(args: &Arguments, text: &[&str]) -> bool {
+    // arg clone so help is still active for later help choices
+    let mut args_clone = args.clone();
     if args_clone.contains(["-h", "--help"]) {
-		println!("Temperature Scale (default Celsius)");
-		println!("\t-C\t--celsius");
-		println!("\t-F\t--fahrenheit");
-		println!("\t-K\t--kelvin");
-		println!("\t-R\t--rankine");
-		println!("");
-		return Ok(());
-	}
-    // Temperature
-    if args.contains(["-C", "--Celsius"]) {
-        owserver.temperature = super::Temperature::CELSIUS;
+        for t in text {
+            println!("{}", t);
+        }
+        println!();
+        true
+    } else {
+        false
     }
-    if args.contains(["-F", "--Farenheit"]) {
-        owserver.temperature = super::Temperature::FARENHEIT;
+}
+
+fn parser_temperature(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    if !helper(
+        args,
+        &[
+            "Temperature Scale (default Celsius)",
+            "\t-C\t--celsius",
+            "\t-F\t--fahrenheit",
+            "\t-K\t--kelvin",
+            "\t-R\t--rankine",
+        ],
+    ) {
+        // Temperature
+        if args.contains(["-C", "--Celsius"]) {
+            owserver.temperature = super::Temperature::CELSIUS;
+        }
+        if args.contains(["-F", "--Farenheit"]) {
+            owserver.temperature = super::Temperature::FARENHEIT;
+        }
+        if args.contains(["-K", "--Kelvin"]) {
+            owserver.temperature = super::Temperature::KELVIN;
+        }
+        if args.contains(["-R", "--Rankine"]) {
+            owserver.temperature = super::Temperature::RANKINE;
+        }
     }
-    if args.contains(["-K", "--Kelvin"]) {
-        owserver.temperature = super::Temperature::KELVIN;
-    }
-    if args.contains(["-R", "--Rankine"]) {
-        owserver.temperature = super::Temperature::RANKINE;
-    }
-	Ok(())
+    Ok(())
 }
 
 fn parser_pressure(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     // Handle the help flag first
-    let mut args_clone = args.clone() ;
-    if args_clone.contains(["-h", "--help"]) {
-		println!("Pressure Scale (default mBar)");
-		println!("\t-mmhg  mm Mercury");
-		println!("\t-inhg  inches Mercury");
-		println!("\t-mbar  mili Bar");
-		println!("\t-atm   atmospheres");
-		println!("\t-ps    Pascals");
-		println!("\t-psi   pounds / in^2");
-		println!("");
-		return Ok(());
-	}
-    // Pressure
-    if args.contains("--mmhg") {
-        owserver.pressure = super::Pressure::MMHG;
-    }
-    if args.contains("--inhg") {
-        owserver.pressure = super::Pressure::INHG;
-    }
-    if args.contains("--mbar") {
-        owserver.pressure = super::Pressure::MBAR;
-    }
-    if args.contains("--atm") {
-        owserver.pressure = super::Pressure::ATM;
-    }
-    if args.contains("--pa") {
-        owserver.pressure = super::Pressure::PA;
-    }
-    if args.contains("--psi") {
-        owserver.pressure = super::Pressure::PSI;
+    if !helper(
+        args,
+        &[
+            "Pressure Scale (default mBar)",
+            "\t-mmhg  mm Mercury",
+            "\t-inhg  inches Mercury",
+            "\t-mbar  mili Bar",
+            "\t-atm   atmospheres",
+            "\t-ps    Pascals",
+            "\t-psi   pounds / in^2",
+        ],
+    ) {
+        // Pressure
+        if args.contains("--mmhg") {
+            owserver.pressure = super::Pressure::MMHG;
+        }
+        if args.contains("--inhg") {
+            owserver.pressure = super::Pressure::INHG;
+        }
+        if args.contains("--mbar") {
+            owserver.pressure = super::Pressure::MBAR;
+        }
+        if args.contains("--atm") {
+            owserver.pressure = super::Pressure::ATM;
+        }
+        if args.contains("--pa") {
+            owserver.pressure = super::Pressure::PA;
+        }
+        if args.contains("--psi") {
+            owserver.pressure = super::Pressure::PSI;
+        }
     }
     Ok(())
 }
 
 fn parser_format(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
-    // Handle the help flag first
-    let mut args_clone = args.clone() ;
-    if args_clone.contains(["-h", "--help"]) {
-		println!("Device format displayed");
-		println!("\t-f\t--format");
-		println!("\t\t\tfi | f.i");
-		println!("\t\t\tfic | fi.c | f.ic | f.i.c");
-		println!("");
-		return Ok(());
-	}
-    // Format
-    let d = args.opt_value_from_fn(["-f", "--format"], parse_device)?;
-    owserver.format = d.unwrap_or(super::Format::DEFAULT);
+    if !helper(
+        args,
+        &[
+            "Device format displayed",
+            "\t-f\t--format",
+            "\t\t\tfi | f.i",
+            "\t\t\tfic | fi.c | f.ic | f.i.c",
+        ],
+    ) {
+        // Format
+        let d = args.opt_value_from_fn(["-f", "--format"], parse_device)?;
+        owserver.format = d.unwrap_or(super::Format::DEFAULT);
+    }
     Ok(())
 }
 
 fn parser_data(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
-    // Handle the help flag first
-    let mut args_clone = args.clone() ;
-    if args_clone.contains(["-h", "--help"]) {
-		println!("Data display (default text");
-		println!("\t--hex\tShow hexidecimal bytes");
-		println!("");
-		return Ok(());
-	}
-    // Display
-    if args.contains("--hex") {
-        owserver.hex = true;
+    if !helper(
+        args,
+        &[
+            "Data display (default text",
+            "\t--hex\tShow hexidecimal bytes",
+            "\t--size\tLimit data size returned (in bytes)",
+            "\t--offset\tposition (in bytes) to start data returned",
+        ],
+    ) {
+        // Display
+        if args.contains("--hex") {
+            owserver.hex = true;
+        }
+        let y = args.opt_value_from_str("--size")?;
+        if let Some(x) = y {
+            owserver.size = x;
+        }
+        let y = args.opt_value_from_str("--offset")?;
+        if let Some(x) = y {
+            owserver.offset = x;
+        }
     }
     Ok(())
 }
@@ -344,6 +420,81 @@ fn parse_device(s: &str) -> OwEResult<super::Format> {
         "f.i.c" => Ok(super::Format::FdIdC),
         _ => Err(OwError::Input(format!("Invalid format {}", s))),
     }
+}
+
+fn parser_server(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    if !helper(
+        args,
+        &[
+            "OwServer address (default localhost:4304)",
+            "\t-s\t--server\tIp address of owserver to contact",
+        ],
+    ) {
+        // Server
+        let serv: Option<String> = args.opt_value_from_str(["-s", "--server"])?;
+        if let Some(s) = serv {
+            owserver.stream.set_target(&s);
+        }
+    }
+    Ok(())
+}
+
+fn parser_listener(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    if !helper(
+        args,
+        &[
+            "Listening address (no default but required)",
+            "\t-p\t--port\tIp address this program will answer on",
+        ],
+    ) {
+        // Listener
+        let listener: Option<String> = args.opt_value_from_str(["-p", "--port"])?;
+        if listener.is_some() {
+            owserver.listener = listener;
+        }
+    }
+    Ok(())
+}
+
+fn parser_directory(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    if !helper(
+        args,
+        &[
+            "Directory display options",
+            "\t--dir\tMark directories with a trailing '/'",
+            "\t--bare\tExclude non-device entries",
+            "\t--prune\tExclude some convenience device entries (e.g. address)",
+        ],
+    ) {
+        // Slash
+        if args.contains("--dir") {
+            owserver.slash = true;
+        }
+        if args.contains("--bare") {
+            owserver.bare = true;
+        }
+        if args.contains("--prune") {
+            owserver.bare = true;
+            owserver.prune = true;
+        }
+    }
+    Ok(())
+}
+
+fn parser_persist(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    if !helper(
+        args,
+        &[
+            "Persistance keeps connection to owserver open",
+            "\t--persist\tFor better performance on repeated queries",
+        ],
+    ) {
+        // Persist
+        if args.contains("--persist") {
+            owserver.stream.set_persistence(true);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -40,8 +40,8 @@ use std::time::Duration;
 
 use crate::message::query::OwQuery;
 
+use crate::console::console_lines;
 use crate::message::response::PrintMessage;
-use crate::console::console_lines ;
 
 use crate::OwMessage;
 

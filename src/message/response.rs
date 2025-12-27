@@ -170,7 +170,7 @@ pub trait PrintMessage {
 
     /// ### print_all
     /// Shows message contents
-    fn print_all(&self, title: &str) -> [String;4] {
+    fn print_all(&self, title: &str) -> [String; 4] {
         [
             format!("{} {}", title, self.line1()),
             self.line2().to_string(),

@@ -37,7 +37,7 @@
 
 pub mod message;
 pub use crate::message::parse_args;
-pub use crate::message::{OwMessage, new};
+pub use crate::message::{new, OwMessage};
 
 pub mod error;
 pub use error::{OwEResult, OwError};
