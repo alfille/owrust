@@ -95,10 +95,10 @@ fn arg_dir(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<(
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_directory(owserver, args)?;
-    parser_format(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    directory_options(owserver, args)?;
+    format_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -114,11 +114,11 @@ fn arg_read(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_temperature(owserver, args)?;
-    parser_pressure(owserver, args)?;
-    parser_data(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    temperature_options(owserver, args)?;
+    pressure_options(owserver, args)?;
+    data_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -134,11 +134,11 @@ fn arg_write(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_temperature(owserver, args)?;
-    parser_pressure(owserver, args)?;
-    parser_data(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    temperature_options(owserver, args)?;
+    pressure_options(owserver, args)?;
+    data_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -154,13 +154,13 @@ fn arg_get(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<(
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_directory(owserver, args)?;
-    parser_format(owserver, args)?;
-    parser_temperature(owserver, args)?;
-    parser_pressure(owserver, args)?;
-    parser_data(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    directory_options(owserver, args)?;
+    format_options(owserver, args)?;
+    temperature_options(owserver, args)?;
+    pressure_options(owserver, args)?;
+    data_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -176,8 +176,8 @@ fn arg_present(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResu
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -192,8 +192,8 @@ fn arg_size(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -208,8 +208,8 @@ fn arg_snoop(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_listener(owserver, args)?;
+    server_options(owserver, args)?;
+    listener_options(owserver, args)?;
     Ok(())
 }
 
@@ -223,14 +223,14 @@ fn arg_lib(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<(
             "OPTIONS",
         ],
     );
-    parser_server(owserver, args)?;
-    parser_listener(owserver, args)?;
-    parser_format(owserver, args)?;
-    parser_temperature(owserver, args)?;
-    parser_pressure(owserver, args)?;
-    parser_data(owserver, args)?;
-    parser_directory(owserver, args)?;
-    parser_persist(owserver, args)?;
+    server_options(owserver, args)?;
+    listener_options(owserver, args)?;
+    format_options(owserver, args)?;
+    temperature_options(owserver, args)?;
+    pressure_options(owserver, args)?;
+    data_options(owserver, args)?;
+    directory_options(owserver, args)?;
+    persist_options(owserver, args)?;
     Ok(())
 }
 
@@ -302,7 +302,7 @@ fn helper(args: &Arguments, text: &[&str]) -> bool {
     }
 }
 
-fn parser_temperature(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn temperature_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
@@ -330,7 +330,7 @@ fn parser_temperature(owserver: &mut crate::OwMessage, args: &mut Arguments) -> 
     Ok(())
 }
 
-fn parser_pressure(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn pressure_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     // Handle the help flag first
     if !helper(
         args,
@@ -367,7 +367,7 @@ fn parser_pressure(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwE
     Ok(())
 }
 
-fn parser_format(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn format_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
@@ -378,13 +378,13 @@ fn parser_format(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwERe
         ],
     ) {
         // Format
-        let d = args.opt_value_from_fn(["-f", "--format"], parse_device)?;
+        let d = args.opt_value_from_fn(["-f", "--format"], device_options)?;
         owserver.format = d.unwrap_or(super::Format::DEFAULT);
     }
     Ok(())
 }
 
-fn parser_data(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn data_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
@@ -410,7 +410,7 @@ fn parser_data(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResu
     Ok(())
 }
 
-fn parse_device(s: &str) -> OwEResult<super::Format> {
+fn device_options(s: &str) -> OwEResult<super::Format> {
     match s {
         "fi" => Ok(super::Format::FI),
         "f.i" => Ok(super::Format::FdI),
@@ -422,7 +422,7 @@ fn parse_device(s: &str) -> OwEResult<super::Format> {
     }
 }
 
-fn parser_server(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn server_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
@@ -439,7 +439,7 @@ fn parser_server(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwERe
     Ok(())
 }
 
-fn parser_listener(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn listener_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
@@ -456,7 +456,7 @@ fn parser_listener(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwE
     Ok(())
 }
 
-fn parser_directory(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn directory_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
@@ -481,7 +481,7 @@ fn parser_directory(owserver: &mut crate::OwMessage, args: &mut Arguments) -> Ow
     Ok(())
 }
 
-fn parser_persist(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+fn persist_options(owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
     if !helper(
         args,
         &[
