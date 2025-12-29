@@ -107,13 +107,14 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::console::console_lines;
-use owrust::parse_args;
+use owrust::parse_args::{OwDir, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
+    let prog = OwDir;
 
     // configure and get paths
-    match parse_args::command_line(&mut owserver) {
+    match prog.command_line(&mut owserver) {
         Ok(paths) => {
             if paths.is_empty() {
                 // No path -- assume root

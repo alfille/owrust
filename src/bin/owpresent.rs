@@ -67,13 +67,15 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust::parse_args;
+use owrust::console::console_line;
+use owrust::parse_args::{OwDir, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
+    let prog = OwDir;
 
     // configure and get paths
-    match parse_args::command_line(&mut owserver) {
+    match prog.command_line(&mut owserver) {
         Ok(paths) => {
             if paths.is_empty() {
                 // No path -- assume root
@@ -96,9 +98,9 @@ fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     match owserver.present(&path) {
         Ok(values) => {
             if values {
-                println!("1");
+                console_line("1");
             } else {
-                println!("0");
+                console_line("0");
             }
         }
         Err(e) => {

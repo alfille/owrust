@@ -1,28 +1,22 @@
-//! **owread** -- _Rust version_
+//! **owsize** -- _Rust version_
 //!
-//! ## Read a value from owserver ( from a 1-wire device )
+//! ## Expected size of a read or dir for a path
 //!
-//! **owread** is a tool in the 1-wire file system **OWFS**
+//! **owsize** is a tool in the 1-wire file system **OWFS**
 //!
-//! This Rust version of **owread** is part of **owrust** -- the _Rust language_ OWFS programs
+//! This Rust version of **owsize** is part of **owrust** -- the _Rust language_ OWFS programs
 //! * **OWFS** [documentation](https://owfs.org) and [code](https://github.com/owfs/owfs)
 //! * **owrust** [repository](https://github.com/alfille/owrust)
 //!
 //! ## SYNTAX
 //! ```
-//! owread [OPTIONS] PATH
+//! owsize [OPTIONS] PATH
 //! ```
-//!
 //! ## PURPOSE
-//! Read the value of a device property
-//! * Often a sensor reading like `10.4323424342/temperature`
-//! * can also be informational like `10.4323424342/type`
+//! Return sie of data (in bytes) for a path read
 //!
 //! ## OPTIONS
 //! * `-s IP:port` (default `localhost:4304`)
-//! * `--hex       show the value in hexidecimal
-//! * `--size n    return only n bytes
-//! * `--offset m  start return at byte m
 //! * -h           for full list of options
 //!
 //! ## PATH
@@ -30,28 +24,37 @@
 //! * No Default
 //! * More than one path can be given
 //!
-//! **owread** only works on files, not directories. Use **owget** to read both files and directories.
+//! **owpresent** works on files and directories.
 //!
 //! ## USAGE
 //! * owserver must be running in a network-accessible location
-//! * `owread` is a command line program
+//! * `owpresent` is a command line program
 //! * output to stdout
+//!   * `1` if present
+//!   * `0` if not present
 //! * errors to stderr
 //!
 //! ## EXAMPLE
-//! Read a temperature
+//! Test presence of a device
 //! ```
-//! owread /10.67C6697351FF/temperature
-//! ```
-//! ```text
-//!     85.7961
-//! ```
-//! Read temperature in hex
-//! ```
-//! owread /10.67C6697351FF/temperature --hex
+//! owpresent /10.67C6697351FF
 //! ```
 //! ```text
-//! 20 20 20 20 20 37 36 2E 31 35 38 35
+//! 1
+//! ```
+//! Test a file
+//! ```
+//! owpresent /10.67C6697351FF/temperature
+//! ```
+//! ```text
+//! 1
+//! ```
+//! Test a device that isn't there
+//! ```
+//! owpresent /10.FFFFFFFFFFFF
+//! ```
+//! ```text
+//! 0
 //! ```
 //! {c} 2025 Paul H Alfille -- MIT Licence
 
@@ -65,19 +68,18 @@
 // {c} 2025 Paul H Alfille
 
 use owrust::console::console_line;
-use owrust::parse_args::{Parser,OwRead};
+use owrust::parse_args::{Parser,OwSize};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
-    let prog = OwRead;
-    
+    let prog = OwSize;
 
     // configure and get paths
     match prog.command_line(&mut owserver) {
         Ok(paths) => {
             if paths.is_empty() {
-                // No path
-                eprintln!("No 1-wire path, so no readings");
+                // No path -- assume root
+                from_path(&mut owserver, "/".to_string());
             } else {
                 // for each pathon command line
                 for path in paths.into_iter() {
@@ -86,24 +88,19 @@ fn main() {
             }
         }
         Err(e) => {
-            eprintln!("owread trouble {}", e);
+            eprintln!("owpresent trouble {}", e);
         }
     }
 }
 
 // print 1-wire file contents (e.g. a sensor reading)
 fn from_path(owserver: &mut owrust::OwMessage, path: String) {
-    match owserver.read(&path) {
-        Ok(values) => match owserver.show_result(values) {
-            Ok(s) => {
-                console_line(s);
-            }
-            Err(e) => {
-                eprintln!("Reading error {}", e);
-            }
+    match owserver.present(&path) {
+        Ok(value) => {
+			console_line(format!("{}",value));
         },
         Err(e) => {
             eprintln!("Trouble with path {} Error {}", path, e);
-        }
+        },
     }
 }

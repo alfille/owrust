@@ -18,11 +18,12 @@
 //! ## EXAMPLES
 //! ```
 //! use owrust ; // basic library
-//! use owrust::parse_args ; // configure from command line, file or OsString
+//! use owrust::parse_args::{Parser,OwLib} ; // configure from command line, file or OsString
 //!
 //! let mut owserver = owrust::new() ; // create an OwMessage struct
+//! let prog = OwLib ;
 //!   // configure from command line and get 1-wire paths
-//! let paths = parse_args::command_line( &mut owserver ) ;
+//! let paths = prog.command_line( &mut owserver ) ;
 //!   // Call any of the OwMessage functions like dir, read, write,...
 //!   ```
 
@@ -545,6 +546,17 @@ impl OwMessage {
             true => self.get_value(path, OwMessage::make_dirallslash),
             _ => self.get_value(path, OwMessage::make_dirall),
         }?;
+        self.dirboth(&mut d)
+    }
+    /// ### dirallslash
+    /// returns the path directory listing
+    /// * efficiently uses a single message
+    /// * enforces _--dir_ command line option
+    /// * honors the _--bare_ command line option
+    /// * removes some stray null bytes erroneously added by original owserver to file names
+    /// * returns `Vec<String>` or error
+    pub fn dirallslash(&mut self, path: &str) -> OwEResult<Vec<String>> {
+        let mut d: Vec<u8> = self.get_value(path, OwMessage::make_dirallslash)?;
         self.dirboth(&mut d)
     }
 

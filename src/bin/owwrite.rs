@@ -60,13 +60,14 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust::parse_args;
+use owrust::parse_args::{Parser,OwWrite};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
+    let prog = OwWrite;
 
     // configure and get paths
-    match parse_args::command_line(&mut owserver) {
+    match prog.command_line(&mut owserver) {
         Ok(paths) => {
             if paths.is_empty() {
                 // No path

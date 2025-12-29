@@ -155,34 +155,30 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::console::console_line;
-use owrust::parse_args;
+use owrust::parse_args::{Parser,OwTree};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
+    let prog = OwTree ;
+    
 
     // configure and get paths
-    let paths = match parse_args::command_line(&mut owserver) {
+    match prog.command_line(&mut owserver) {
         Ok(paths) => {
             if paths.is_empty() {
-                vec!["/".to_string()]
+                // No path -- assume root
+                from_path(&mut owserver, "/".to_string());
             } else {
-                paths
+				// show tree for each path
+				for path in paths.into_iter() {
+					from_path(&mut owserver, path);
+				}
             }
-        }
-        Err(_e) => vec!["/".to_string()],
-    };
-
-    // add slash and persistence
-    match parse_args::modified_messager(&owserver, vec!["--dir", "--persist"]) {
-        Ok(mut new_server) => {
-            for path in paths.into_iter() {
-                from_path(&mut new_server, path);
-            }
-        }
+        },
         Err(e) => {
-            eprintln!("Could not set persistence and directory signal: {}", e);
-        }
-    };
+            eprintln!("owtree trouble {}", e);
+		},
+    }
 }
 
 // start at path, printing and following directories recursively
@@ -199,7 +195,7 @@ struct Dir {
 impl Dir {
     // directory needs to call dirall to get a list of contents
     fn new(owserver: &mut owrust::OwMessage, path: String) -> Self {
-        match owserver.dirall(&path) {
+        match owserver.dirallslash(&path) {
             Ok(d) => Dir {
                 contents: d.into_iter().map(File::new).collect(),
             },

@@ -18,11 +18,12 @@
 //! ## EXAMPLES
 //! ```
 //! use owrust ; // basic library
-//! use owrust::parse_args ; // configure from command line, file or OsString
+//! use owrust::parse_args::{Parser,OwLib} ; // configure from command line, file or OsString
 //!
 //! let mut owserver = owrust::new() ; // create an OwMessage struct
+//! let prog = OwLib ;
 //!   // configure from command line and get 1-wire paths
-//! let paths = parse_args::command_line( &mut owserver ) ;
+//! let paths = prog.command_line( &mut owserver ) ;
 //!   // Call any of the OwMessage functions like dir, read, write,...
 //!   ```
 

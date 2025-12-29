@@ -44,13 +44,14 @@
 // This is a Rust version of my C owfs code for talking to 1-wire devices via owserver
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
-use owrust::parse_args;
+use owrust::parse_args::{Parser,OwSnoop};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
+    let prog = OwSnoop;
 
     // configure and get paths
-    match parse_args::command_line(&mut owserver) {
+    match prog.command_line(&mut owserver) {
         Ok(paths) => {
             if !paths.is_empty() {
                 // Path not supported in owsnoop
