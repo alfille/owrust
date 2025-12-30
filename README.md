@@ -17,6 +17,11 @@ A Rust library and command-line tools for communicating with [OWFS](https://www.
 - **Configurable** temperature scales, pressure units, and device ID formats
 - **Network-based** access to local or remote owserver instances
 
+## Full Docs
+
+- **[User Guide](https://alfille.github.io/owrust/book/index.html)**
+- **[API](https://alfille.github.io/owrust/api/owrust/index.html)**
+
 ## Quick Start
 
 ### Library Usage
