@@ -1,10 +1,13 @@
 //! ### console module
 //! Manage output to screen (stdout)
-//! * Thread-safe with automic entries
-//! * cli safe for broken_pipe so can manage "head" other command line manipulations
 //! * Should only be used on CLI (command line interface) programs like owtree
 //!   * exits on error (bad for library)
 //!   * no recovery possible
+//! * CLI safe for broken_pipe
+//!   * Can Ctrl-C without error
+//!   * **head** does not cause error
+//! * Thread-safe -- does not intermix individual text output
+//! * Initializes and locks automatically
 //!
 //! Credit to Gemini AI for much of the general code design
 
@@ -75,9 +78,9 @@ where
 /// ```
 /// use owrust::console_lines;
 /// let text_lines = [
-///   "Opening stanza",
-///   "Meat of the problem",
-///   "Reiteration",
+///   "Multi-line",
+///   "output is",
+///   "permissable",
 /// ];
 /// console_lines(&text_lines);
 ///```

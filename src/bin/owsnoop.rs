@@ -51,7 +51,7 @@
 //! DIRALL /
 //! Flags: C mbar f.i net   alias  bus
 //! Payload:2 Size:0 Offset:0
-//! 
+//!
 //! Response Message Incoming Version: 0
 //! Return code = 0
 //! Flags: C mbar f.i net   alias  bus
@@ -68,12 +68,12 @@
 //! READ /10.67c6697351ff/temperature
 //! Flags: C mbar f.i net   alias  bus
 //! Payload:29 Size:65536 Offset:0
-//! 
+//!
 //! Response Message Incoming Version: 0
 //! Return code = 12
 //! Flags: C mbar f.i net   alias  bus
 //! Payload:12 Size:12 Offset:0
-//! 
+//!
 //! ```
 
 //! ### {c} 2025 Paul H Alfille -- MIT Licence

@@ -164,9 +164,9 @@ impl PrintMessage for OwResponse {
     fn content(&self) -> &Vec<u8> {
         &self.content
     }
-    fn line_2( &self ) -> String {
-		self.return_line_2()
-	}
+    fn line_2(&self) -> String {
+        self.return_line_2()
+    }
 }
 
 #[cfg(test)]

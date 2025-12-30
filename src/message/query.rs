@@ -268,9 +268,9 @@ impl PrintMessage for OwQuery {
     fn content(&self) -> &Vec<u8> {
         &self.content
     }
-    fn line_2( &self ) -> String {
-		self.mtype_line_2()
-	}
+    fn line_2(&self) -> String {
+        self.mtype_line_2()
+    }
 }
 #[cfg(test)]
 mod tests {

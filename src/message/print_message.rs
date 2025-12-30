@@ -78,10 +78,10 @@ pub trait PrintMessage {
         ]
     }
 
-    fn version_line_1(&self,title: &str) -> String {
+    fn version_line_1(&self, title: &str) -> String {
         format!("{} Version: {}", title, self.string_version())
     }
-    fn line_2(&self) -> String ;
+    fn line_2(&self) -> String;
     fn mtype_line_2(&self) -> String {
         self.string_type()
     }
@@ -89,11 +89,11 @@ pub trait PrintMessage {
         format!("Return code = {}", self.ret())
     }
     fn flags_line_3(&self) -> String {
-            format!(
-                "Flags: {}",
-                crate::message::OwMessage::flag_string(self.flags())
-			)
-	}
+        format!(
+            "Flags: {}",
+            crate::message::OwMessage::flag_string(self.flags())
+        )
+    }
     fn sizes_line_4(&self) -> String {
         format!(
             "Payload:{} Size:{} Offset:{}",
@@ -159,4 +159,3 @@ pub trait PrintMessage {
         format!("{}", self.offset())
     }
 }
-
