@@ -60,7 +60,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use owrust::parse_args::{Parser,OwWrite};
+use owrust::parse_args::{OwWrite, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication

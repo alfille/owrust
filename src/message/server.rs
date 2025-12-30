@@ -42,7 +42,7 @@ use std::time::Duration;
 use crate::message::query::OwQuery;
 
 use crate::console::console_lines;
-use crate::message::response::PrintMessage;
+use crate::message::print_message::PrintMessage;
 
 use crate::OwMessage;
 
@@ -79,7 +79,7 @@ impl OwServerInstance {
         // match persistence
         self.message
             .stream
-            .set_persistence(rcv.flags() & OwMessage::PERSISTENCE != 0);
+            .set_persistence(rcv.flags & OwMessage::PERSISTENCE != 0);
 
         // relay message on
         console_lines(rcv.print_all("Query Message incoming"));

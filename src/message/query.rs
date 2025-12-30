@@ -42,6 +42,7 @@ use std::net::TcpStream;
 use std::str;
 
 pub use crate::error::{OwEResult, OwError};
+use crate::message::print_message::PrintMessage;
 
 // for Token management
 use crate::message::Token;
@@ -245,7 +246,7 @@ impl OwQuery {
     }
 }
 
-impl crate::message::response::PrintMessage for OwQuery {
+impl PrintMessage for OwQuery {
     fn version(&self) -> u32 {
         self.version
     }
@@ -267,25 +268,19 @@ impl crate::message::response::PrintMessage for OwQuery {
     fn content(&self) -> &Vec<u8> {
         &self.content
     }
-    /*
-    fn tokenlist( &self ) -> u32 {
-        self.tokenlist
-    }
-    */
-    fn line2(&self) -> String {
-        self.alt_line2()
-    }
+    fn line_2( &self ) -> String {
+		self.mtype_line_2()
+	}
 }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::response::PrintMessage;
 
     #[test]
     fn test_blank_query() {
         let query =
             OwQuery::new(0x10101010 as u32, OwQuery::READ, Some("/"), None, [0u8; 16]).unwrap();
         let desc = query.print_all("Test Query").join("\n").to_string();
-        assert_eq!( desc, "Test Query  Version: 10001 tokens=1\nReturn code = 2\nFlags: C psi f.i   safe   \nPayload:1 Size:65536 Offset:0".to_string() );
+        assert_eq!( desc, "Test Query  Version: 10001 tokens=1\nReturn code = 2\nFlags: C psi f.i   safe   \nPayload:1 Size:65536 Offset:0\n".to_string() );
     }
 }

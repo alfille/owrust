@@ -55,6 +55,7 @@ use stream::Stream;
 pub use crate::error::{OwEResult, OwError};
 
 pub mod parse_args;
+pub mod print_message;
 
 /// Type for server tokens to prevent owserver network loops
 pub type Token = [u8; 16];
@@ -631,12 +632,11 @@ impl OwMessage {
                         });
                     }
                     Err(e) => {
-                        eprintln!("Bad server query connection. {}", e);
+                        eprintln!("{}", e);
                     }
                 }
             }
         } else {
-            eprintln!("No --port address given.");
             return Err(OwError::General(
                 "No address given to listen on (--port)".to_string(),
             ));

@@ -37,7 +37,7 @@
 // {c} 2025 Paul H Alfille
 
 pub use crate::error::OwEResult;
-use crate::message::OwQuery;
+use crate::message::print_message::PrintMessage;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
@@ -142,122 +142,6 @@ impl OwResponse {
     }
 }
 
-/// ### PrintMessage trait
-/// Trait for displaying content of "snooped" messages
-/// * covers OwResponse and OwQuery
-/// * uses "getter" functions for struct fields
-/// * able to navigate the different interpretation of the ret / mtype field
-/// * 4 lines
-///   * Title and version
-///   * Message type or return code and contents
-///   * Flag details
-///   * Size and offset
-/// * could also be used for client messages
-pub trait PrintMessage {
-    // Getters
-    fn version(&self) -> u32;
-    fn flags(&self) -> u32;
-    fn payload(&self) -> i32;
-    fn mtype(&self) -> u32 {
-        self.ret() as u32
-    }
-    fn ret(&self) -> i32 {
-        self.mtype() as i32
-    }
-    fn size(&self) -> u32;
-    fn offset(&self) -> u32;
-    fn content(&self) -> &Vec<u8>;
-    //fn tokenlist( &self ) -> Vec<Token> ;
-
-    /// ### print_all
-    /// Shows message contents
-    fn print_all(&self, title: &str) -> [String; 4] {
-        [
-            format!("{} {}", title, self.line1()),
-            self.line2().to_string(),
-            format!(
-                "Flags: {}",
-                crate::message::OwMessage::flag_string(self.flags())
-            ),
-            self.line3().to_string(),
-        ]
-    }
-
-    fn line1(&self) -> String {
-        format!(" Version: {}", self.string_version())
-    }
-    fn line2(&self) -> String {
-        self.string_type()
-    }
-    fn alt_line2(&self) -> String {
-        format!("Return code = {}", self.ret())
-    }
-    fn line3(&self) -> String {
-        format!(
-            "Payload:{} Size:{} Offset:{}",
-            self.string_payload(),
-            self.string_size(),
-            self.string_offset()
-        )
-    }
-    fn string_path(&self) -> String {
-        String::from_utf8_lossy(self.content()).to_string()
-    }
-    fn string_path_pair(&self) -> (String, String) {
-        let path_len: usize = (self.payload() - (self.size() as i32)) as usize;
-        let first: String = String::from_utf8_lossy(&self.content()[..path_len]).to_string();
-        let second: String = self.content()[path_len..self.payload() as usize]
-            .iter()
-            .map(|b| format!("{:02X}", b))
-            .collect::<Vec<String>>()
-            .join(" ");
-        (first, second)
-    }
-    fn string_version(&self) -> String {
-        if (self.version() & crate::message::SERVERMESSAGE) == crate::message::SERVERMESSAGE {
-            format!(
-                "{:X} tokens={}",
-                self.version(),
-                self.version() & crate::message::SERVERTOKENS
-            )
-        } else {
-            format!("{:X}", self.version())
-        }
-    }
-    /*
-        fn string_ret(&self) -> String {
-            format!("{}", self.ret())
-        }
-    */
-    fn string_type(&self) -> String {
-        match self.mtype() {
-            OwQuery::NOP => "NOP".to_string(),
-            OwQuery::READ => format!("READ {}", self.string_path()),
-            OwQuery::WRITE => {
-                let w = self.string_path_pair();
-                format!("WRITE {} => {}", w.0, w.1)
-            }
-            OwQuery::DIR => format!("DIR {}", self.string_path()),
-            OwQuery::SIZE => "SIZE".to_string(),
-            OwQuery::PRESENT => "PRESENT".to_string(),
-            OwQuery::DIRALL => format!("DIRALL {}", self.string_path()),
-            OwQuery::GET => format!("GET {}", self.string_path()),
-            OwQuery::DIRALLSLASH => format!("DIRALLSLASH {}", self.string_path()),
-            OwQuery::GETSLASH => format!("GETSLASH {}", self.string_path()),
-            _ => format!("UNKNOWN message number {}", self.mtype()),
-        }
-    }
-    fn string_payload(&self) -> String {
-        format!("{}", self.payload())
-    }
-    fn string_size(&self) -> String {
-        format!("{}", self.size())
-    }
-    fn string_offset(&self) -> String {
-        format!("{}", self.offset())
-    }
-}
-
 impl PrintMessage for OwResponse {
     fn version(&self) -> u32 {
         self.version
@@ -280,11 +164,9 @@ impl PrintMessage for OwResponse {
     fn content(&self) -> &Vec<u8> {
         &self.content
     }
-    /*
-    fn tokenlist( &self ) -> u32 {
-        self.tokenlist
-    }
-    */
+    fn line_2( &self ) -> String {
+		self.return_line_2()
+	}
 }
 
 #[cfg(test)]
@@ -294,6 +176,6 @@ mod tests {
     fn test_blank_response() {
         let resp = OwResponse::new(0x10101010 as u32);
         let desc = resp.print_all("Test Response").join("\n").to_string();
-        assert_eq!( desc, "Test Response  Version: 1\nUNKNOWN message number 0\nFlags: C psi f.i   safe   \nPayload:0 Size:0 Offset:0".to_string() );
+        assert_eq!( desc, "Test Response  Version: 1\nUNKNOWN message number 0\nFlags: C psi f.i   safe   \nPayload:0 Size:0 Offset:0\n".to_string() );
     }
 }

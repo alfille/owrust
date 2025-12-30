@@ -155,12 +155,11 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::console::console_line;
-use owrust::parse_args::{Parser,OwTree};
+use owrust::parse_args::{OwTree, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
-    let prog = OwTree ;
-    
+    let prog = OwTree;
 
     // configure and get paths
     match prog.command_line(&mut owserver) {
@@ -169,15 +168,15 @@ fn main() {
                 // No path -- assume root
                 from_path(&mut owserver, "/".to_string());
             } else {
-				// show tree for each path
-				for path in paths.into_iter() {
-					from_path(&mut owserver, path);
-				}
+                // show tree for each path
+                for path in paths.into_iter() {
+                    from_path(&mut owserver, path);
+                }
             }
-        },
+        }
         Err(e) => {
             eprintln!("owtree trouble {}", e);
-		},
+        }
     }
 }
 

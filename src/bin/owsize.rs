@@ -68,7 +68,7 @@
 // {c} 2025 Paul H Alfille
 
 use owrust::console::console_line;
-use owrust::parse_args::{Parser,OwSize};
+use owrust::parse_args::{OwSize, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
@@ -97,10 +97,10 @@ fn main() {
 fn from_path(owserver: &mut owrust::OwMessage, path: String) {
     match owserver.present(&path) {
         Ok(value) => {
-			console_line(format!("{}",value));
-        },
+            console_line(format!("{}", value));
+        }
         Err(e) => {
             eprintln!("Trouble with path {} Error {}", path, e);
-        },
+        }
     }
 }

@@ -65,7 +65,7 @@
 // Basically owserver can talk to the physical devices, and provides network access via my "owserver protocol"
 
 use owrust::console::console_line;
-use owrust::parse_args::{Parser,OwGet};
+use owrust::parse_args::{OwGet, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication

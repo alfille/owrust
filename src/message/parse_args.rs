@@ -7,14 +7,23 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+use crate::console::console_lines;
 use crate::error::{OwEResult, OwError};
 use pico_args::Arguments;
 use std::ffi::OsString;
-use std::{process};
+use std::process;
 
+/// ### OwDir
+/// Structure encapsulating the command line argument processing and help for **owdir**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwDir;
 impl Parser for OwDir {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -33,9 +42,17 @@ impl Parser for OwDir {
     }
 }
 
+/// ### OwTree
+/// Structure encapsulating the command line argument processing and help for **owtree**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwTree;
 impl Parser for OwTree {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -50,15 +67,23 @@ impl Parser for OwTree {
         self.directory_options(owserver, args)?;
         self.format_options(owserver, args)?;
         self.persist_options(owserver, args)?;
-		// special consideration for owtree -- alway persistent
-		owserver.stream.set_persistence(true);
+        // special consideration for owtree -- alway persistent
+        owserver.stream.set_persistence(true);
         Ok(())
     }
 }
 
+/// ### OwGet
+/// Structure encapsulating the command line argument processing and help for **owget**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwGet;
 impl Parser for OwGet {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -81,9 +106,17 @@ impl Parser for OwGet {
     }
 }
 
+/// ### OwRead
+/// Structure encapsulating the command line argument processing and help for **owread**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwRead;
 impl Parser for OwRead {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -104,9 +137,17 @@ impl Parser for OwRead {
     }
 }
 
+/// ### OwWrite
+/// Structure encapsulating the command line argument processing and help for **owwrite**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwWrite;
 impl Parser for OwWrite {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -127,9 +168,17 @@ impl Parser for OwWrite {
     }
 }
 
+/// ### OwSize
+/// Structure encapsulating the command line argument processing and help for **owsize**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwSize;
 impl Parser for OwSize {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -146,9 +195,17 @@ impl Parser for OwSize {
     }
 }
 
+/// ### OwPresent
+/// Structure encapsulating the command line argument processing and help for **owpresent**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwPresent;
 impl Parser for OwPresent {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -166,9 +223,17 @@ impl Parser for OwPresent {
     }
 }
 
+/// ### OwSnoop
+/// Structure encapsulating the command line argument processing and help for **owsnoop**
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwSnoop;
 impl Parser for OwSnoop {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -185,9 +250,17 @@ impl Parser for OwSnoop {
     }
 }
 
+/// ### OwLib
+/// Structure encapsulating the command line argument processing and help for generic implementation
+///
+/// Uses default implementation except function **help_and_options**
 pub struct OwLib;
 impl Parser for OwLib {
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()> {
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()> {
         let _ = self.helper(
             args,
             &[
@@ -209,6 +282,14 @@ impl Parser for OwLib {
     }
 }
 
+/// ### Parser trait
+/// Handles commandline parsing and help
+///
+/// * Requires implementation of **help_and_options**
+/// * **command_line** reads from the command line
+/// * **vector_line** reads from an array of String arguments (useful for testing or internal configuration)
+/// * **xxx_options** are bundles of options with common usage, including related help
+/// * **helper** prints out help text
 pub trait Parser {
     /// ### command_line
     /// * Argument OwMessage structure (mutable)
@@ -243,7 +324,7 @@ pub trait Parser {
     /// use pico_args::Arguments;
     /// use owrust::parse_args::{Parser,OwLib} ;
     /// let mut owserver = owrust::new() ; // new OwMessage structure
-	/// let prog = OwLib ;
+    /// let prog = OwLib ;
     /// let args: Vec<&str> = vec!(
     ///     "-C",
     ///     "--bare",
@@ -262,7 +343,11 @@ pub trait Parser {
         self.parser(owserver, &mut Arguments::from_vec(os_args))
     }
 
-    fn help_and_options(&self, owserver: &mut crate::OwMessage, args: &mut Arguments) -> OwEResult<()>;
+    fn help_and_options(
+        &self,
+        owserver: &mut crate::OwMessage,
+        args: &mut Arguments,
+    ) -> OwEResult<()>;
 
     fn parser(
         &self,
@@ -280,12 +365,14 @@ pub trait Parser {
 
         // Handle the help flag for the trailing message
         if args.contains(["-h", "--help"]) {
-            println!();
-            println!("General");
-            println!("\t-h\t--help\tThis help message");
-            println!("\t-d\t--debug\tShow debugging information");
-            println!();
-            println!("See https://github.com/alfille/owrust for more information");
+            console_lines([
+                "",
+                "General",
+                "\t-h\t--help\tThis help message",
+                "\t-d\t--debug\tShow debugging information",
+                "",
+                "See https://github.com/alfille/owrust for more information",
+            ]);
             process::exit(0);
         }
 
@@ -313,10 +400,7 @@ pub trait Parser {
         // arg clone so help is still active for later help choices
         let mut args_clone = args.clone();
         if args_clone.contains(["-h", "--help"]) {
-            for t in text {
-                println!("{}", t);
-            }
-            println!();
+            console_lines(text);
             true
         } else {
             false
@@ -536,15 +620,15 @@ pub trait Parser {
 }
 
 fn format_match(s: &str) -> OwEResult<super::Format> {
-	match s {
-		"fi" => Ok(super::Format::FI),
-		"f.i" => Ok(super::Format::FdI),
-		"fic" => Ok(super::Format::FIC),
-		"f.ic" => Ok(super::Format::FdIC),
-		"fi.c" => Ok(super::Format::FIdC),
-		"f.i.c" => Ok(super::Format::FdIdC),
-		_ => Err(OwError::Input(format!("Invalid format {}", s))),
-	}
+    match s {
+        "fi" => Ok(super::Format::FI),
+        "f.i" => Ok(super::Format::FdI),
+        "fic" => Ok(super::Format::FIC),
+        "f.ic" => Ok(super::Format::FdIC),
+        "fi.c" => Ok(super::Format::FIdC),
+        "f.i.c" => Ok(super::Format::FdIdC),
+        _ => Err(OwError::Input(format!("Invalid format {}", s))),
+    }
 }
 
 #[cfg(test)]
@@ -583,7 +667,7 @@ mod tests {
             for t in [short(&test), long(&test)] {
                 let args: Vec<&str> = vec![&t];
                 let mut owserver = crate::new();
-                let prog = OwLib ;
+                let prog = OwLib;
                 let _ = prog.vector_line(&mut owserver, args);
                 owserver.make_flags();
                 let result = owserver.flags & ts.1;
@@ -606,7 +690,7 @@ mod tests {
             for t in [long(&test)] {
                 let args: Vec<&str> = vec![&t];
                 let mut owserver = crate::new();
-                let prog = OwLib ;
+                let prog = OwLib;
                 let _ = prog.vector_line(&mut owserver, args);
                 owserver.make_flags();
                 let result = owserver.flags & ts.1;
@@ -626,8 +710,8 @@ mod tests {
             for t in [short(&test), long(&test)] {
                 let args: Vec<&str> = vec![&t];
                 let mut owserver = crate::new();
-                let prog = OwLib ;
-                let _ = prog.vector_line( &mut owserver, args ) ;
+                let prog = OwLib;
+                let _ = prog.vector_line(&mut owserver, args);
                 owserver.make_flags();
                 let result = owserver.flags & ts.1;
                 assert_eq!(result, ts.1);
@@ -637,28 +721,28 @@ mod tests {
     #[test]
     fn noport_test() {
         let args: Vec<&str> = vec![];
-		let mut owserver = crate::new();
-		let prog = OwLib ;
-		let _ = prog.vector_line(&mut owserver, args);
-		owserver.make_flags();
+        let mut owserver = crate::new();
+        let prog = OwLib;
+        let _ = prog.vector_line(&mut owserver, args);
+        owserver.make_flags();
         assert_eq!(owserver.listener, None);
     }
     #[test]
     fn port_test() {
         let args: Vec<&str> = vec!["-p", "localhost:14304"];
-		let mut owserver = crate::new();
-		let prog = OwLib ;
-		let _ = prog.vector_line(&mut owserver, args);
-		owserver.make_flags();
+        let mut owserver = crate::new();
+        let prog = OwLib;
+        let _ = prog.vector_line(&mut owserver, args);
+        owserver.make_flags();
         assert_eq!(owserver.listener, Some("localhost:14304".to_string()));
     }
     #[test]
     fn port2_test() {
         let args: Vec<&str> = vec!["--port", "localhost:14304"];
-		let mut owserver = crate::new();
-		let prog = OwLib ;
-		let _ = prog.vector_line(&mut owserver, args);
-		owserver.make_flags();
+        let mut owserver = crate::new();
+        let prog = OwLib;
+        let _ = prog.vector_line(&mut owserver, args);
+        owserver.make_flags();
         assert_eq!(owserver.listener, Some("localhost:14304".to_string()));
     }
 }

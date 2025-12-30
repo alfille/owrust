@@ -65,12 +65,11 @@
 // {c} 2025 Paul H Alfille
 
 use owrust::console::console_line;
-use owrust::parse_args::{Parser,OwRead};
+use owrust::parse_args::{OwRead, Parser};
 
 fn main() {
     let mut owserver = owrust::new(); // create structure for owserver communication
     let prog = OwRead;
-    
 
     // configure and get paths
     match prog.command_line(&mut owserver) {

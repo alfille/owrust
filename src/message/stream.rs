@@ -120,7 +120,7 @@ impl Stream {
     /// Set target address and clear stream for safety
     /// Does not alter persistence state
     pub fn set_target(&mut self, target: &str) {
-        println!("Setting target: {}", target);
+        //println!("Setting target: {}", target);
         self.target = target.to_string();
         self.stream = None;
     }
