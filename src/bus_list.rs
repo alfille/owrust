@@ -12,7 +12,7 @@
 // {c} 2025 Paul H Alfille
 
 use anyhow::{Context, Result};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc};
 use std::thread;
 
 pub struct BusQuery {
@@ -21,7 +21,7 @@ pub struct BusQuery {
 }
 
 impl BusQuery {
-    pub fn send(cmd: BusCmd, bus: Bus) -> Result<BusReturn> {
+    pub fn send(cmd: BusCmd, bus: &BusHandle) -> Result<BusReturn> {
         let (my_tx, my_rx) = mpsc::channel();
         let query = BusQuery { cmd, my_tx };
         bus.tx
@@ -32,12 +32,14 @@ impl BusQuery {
     }
 }
 
-pub struct Bus {
+/// BusHandle is the external view of the bus
+/// * holds the mpsc handle for sending data
+pub struct BusHandle {
     tx: mpsc::Sender<BusQuery>,
 }
 
 pub struct BusList {
-    list: Vec<Bus>,
+    list: Vec<BusHandle>,
 }
 impl Default for BusList {
     fn default() -> Self {
@@ -48,7 +50,7 @@ impl BusList {
     pub fn new() -> Self {
         Self { list: Vec::new() }
     }
-    pub fn add(&mut self, bus: Bus) {
+    pub fn add(&mut self, bus: BusHandle) {
         self.list.push(bus)
     }
 }
@@ -66,8 +68,8 @@ pub enum BusReturn {
     Bytes(Vec<u8>),
 }
 
-//pub trait BusTalk: Send + Sync + 'static {
-pub trait BusTalk {
+///pub trait BusThread: Send + Sync + 'static {
+pub trait BusThread {
     /// Returns the presence pulse (true if any slaves)
     fn reset(&mut self) -> Result<BusReturn>;
     fn status(&self) -> Result<BusReturn>;
@@ -84,26 +86,36 @@ pub trait BusTalk {
             BusCmd::RWrite(data) => self.reset_write(data),
         }
     }
-    /// initiate the bus loop
-    /// requires considerable magic to protect against threads stepping on each other
-    fn spawn(self_arc: Arc<Mutex<Self>>) -> Bus
+    /// create the bus thread
+    /// * Works with different typoes of buses
+    /// * actual bus structure is created in thread
+    /// * External BusHandle us just the address
+    /// * Uses a factory patern to create the internal bus device
+    /// Example:
+    /// ```
+    /// use owrust::bus_list::BusThread;
+    /// use owrust::ds9097e::DS9097E ; 
+    /// let _ = <DS9097E as BusThread>::spawn( "/dev/ttyS0".to_string(), |p| { DS9097E::new(p) } );
+    /// ```
+    fn spawn<T, F>(path: String, factory: F) -> BusHandle
     where
-        Self: Sized + Send + Sync + 'static,
+        T : BusThread + Send + 'static,
+        F: FnOnce(String) -> Result<T> + Send + 'static,
     {
         let (tx, rx) = mpsc::channel::<BusQuery>();
         thread::spawn(move || {
+			let mut bus = match factory(path) {
+				Ok(b) => b,
+				Err(e) => {
+					eprintln!("Could not create bus. {}",e);
+					return ;
+				},
+			};
             while let Ok(req) = rx.recv() {
-                let mut bus = match self_arc.lock() {
-                    Ok(guard) => guard,
-                    Err(_) => {
-                        let _ = req.my_tx.send(BusReturn::Bad);
-                        break;
-                    }
-                };
                 let result = bus.command(req.cmd).unwrap_or(BusReturn::Bad);
                 let _ = req.my_tx.send(result);
             }
         });
-        Bus { tx }
+        BusHandle { tx }
     }
 }
