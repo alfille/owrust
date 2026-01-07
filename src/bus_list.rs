@@ -11,50 +11,46 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use anyhow::{Result, Context};
-use std::sync::mpsc ;
-use std::thread ;
-use crate::bus_talk::{BusCmd,BusReturn};
+use anyhow::{Context, Result};
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
 
 pub struct BusQuery {
-	cmd: BusCmd,
-	my_tx: mpsc::Sender<BusReturn>,
+    cmd: BusCmd,
+    my_tx: mpsc::Sender<BusReturn>,
 }
 
 impl BusQuery {
-	pub fn send( cmd: BusCmd, bus: Bus ) -> Result<BusReturn> {
-        let (my_tx,my_rx) = mpsc::channel() ;
-		let query = BusQuery {
-			cmd,
-			my_tx,
-		} ;
-		bus.tx.clone().send( query ).context("Unable to clone bus channel") ? ;
-		Ok(my_rx.recv()?)
-	}
+    pub fn send(cmd: BusCmd, bus: Bus) -> Result<BusReturn> {
+        let (my_tx, my_rx) = mpsc::channel();
+        let query = BusQuery { cmd, my_tx };
+        bus.tx
+            .clone()
+            .send(query)
+            .context("Unable to clone bus channel")?;
+        Ok(my_rx.recv()?)
+    }
 }
 
 pub struct Bus {
-	tx: mpsc::Sender<BusQuery>,
-	rx: mpsc::Receiver<BusCmd>,
+    tx: mpsc::Sender<BusQuery>,
 }
 
 pub struct BusList {
-	list: Vec<Bus>,
+    list: Vec<Bus>,
 }
 impl Default for BusList {
-	fn default() -> Self {
-		Self::new()
-	}
+    fn default() -> Self {
+        Self::new()
+    }
 }
 impl BusList {
-	pub fn new() -> Self {
-		Self {
-			list: Vec::new(),
-		}
-	}
-	pub fn add( &mut self, bus: Bus ) {
-		self.list.push(bus)
-	}		
+    pub fn new() -> Self {
+        Self { list: Vec::new() }
+    }
+    pub fn add(&mut self, bus: Bus) {
+        self.list.push(bus)
+    }
 }
 
 pub enum BusCmd {
@@ -65,10 +61,12 @@ pub enum BusCmd {
 }
 
 pub enum BusReturn {
+    Bad,
     Bool(bool),
     Bytes(Vec<u8>),
 }
 
+//pub trait BusTalk: Send + Sync + 'static {
 pub trait BusTalk {
     /// Returns the presence pulse (true if any slaves)
     fn reset(&mut self) -> Result<BusReturn>;
@@ -86,17 +84,26 @@ pub trait BusTalk {
             BusCmd::RWrite(data) => self.reset_write(data),
         }
     }
-	fn spawn( &self ) -> Result<Bus> {
-		let ( rx,tx ) = mpsc::channel() ;
-		thread::spawn( move || {
-			while let Ok(req) = rx.recv() {
-				let result = req.command( req.cmd ).context("Failed to process this request") ?;
-				let _ = req.my_tx.send( result ) ;
-			}
-		});
-		Ok( Bus{
-			tx,
-			rx,
-		} )
-	}		
+    /// initiate the bus loop
+    /// requires considerable magic to protect against threads stepping on each other
+    fn spawn(self_arc: Arc<Mutex<Self>>) -> Bus
+    where
+        Self: Sized + Send + Sync + 'static,
+    {
+        let (tx, rx) = mpsc::channel::<BusQuery>();
+        thread::spawn(move || {
+            while let Ok(req) = rx.recv() {
+                let mut bus = match self_arc.lock() {
+                    Ok(guard) => guard,
+                    Err(_) => {
+                        let _ = req.my_tx.send(BusReturn::Bad);
+                        break;
+                    }
+                };
+                let result = bus.command(req.cmd).unwrap_or(BusReturn::Bad);
+                let _ = req.my_tx.send(result);
+            }
+        });
+        Bus { tx }
+    }
 }
