@@ -745,42 +745,42 @@ mod tests {
         owserver.make_flags();
         assert_eq!(owserver.listener, Some("localhost:14304".to_string()));
     }
-    
+
     fn has_help<P: Parser>(prog: P) {
         let mut owserver = crate::new();
-		let result = prog.vector_line(&mut owserver, vec!("-h"));
-		assert!(result.is_ok(),"help available {:?}", result) ;
-	}
-	
-	#[test]
-	fn all_help() {
-		has_help( OwDir ) ;
-		has_help( OwGet ) ;
-		has_help( OwRead ) ;
-		has_help( OwWrite ) ;
-		has_help( OwLib ) ;
-		has_help( OwPresent ) ;
-		has_help( OwSize ) ;
-		has_help( OwSnoop ) ;
-		has_help( OwTree ) ;
-	}
+        let result = prog.vector_line(&mut owserver, vec!["-h"]);
+        assert!(result.is_ok(), "help available {:?}", result);
+    }
+
+    #[test]
+    fn all_help() {
+        has_help(OwDir);
+        has_help(OwGet);
+        has_help(OwRead);
+        has_help(OwWrite);
+        has_help(OwLib);
+        has_help(OwPresent);
+        has_help(OwSize);
+        has_help(OwSnoop);
+        has_help(OwTree);
+    }
 
     fn has_server<P: Parser>(prog: P) {
         let mut owserver = crate::new();
-		let result = prog.vector_line(&mut owserver, vec!("-s","localhost:4304"));
-		assert!(result.is_ok(),"server available {:?}", result) ;
-	}
-	
-	#[test]
-	fn all_server() {
-		has_server( OwDir ) ;
-		has_server( OwGet ) ;
-		has_server( OwRead ) ;
-		has_server( OwWrite ) ;
-		has_server( OwLib ) ;
-		has_server( OwPresent ) ;
-		has_server( OwSize ) ;
-		has_server( OwSnoop ) ;
-		has_server( OwTree ) ;
-	}
+        let result = prog.vector_line(&mut owserver, vec!["-s", "localhost:4304"]);
+        assert!(result.is_ok(), "server available {:?}", result);
+    }
+
+    #[test]
+    fn all_server() {
+        has_server(OwDir);
+        has_server(OwGet);
+        has_server(OwRead);
+        has_server(OwWrite);
+        has_server(OwLib);
+        has_server(OwPresent);
+        has_server(OwSize);
+        has_server(OwSnoop);
+        has_server(OwTree);
+    }
 }

@@ -13,10 +13,18 @@ categories = ["hardware-support", "network-programming"]
 readme = "README.md"
 
 [dependencies]
-pico-args = "0.5.0" # Use the latest version
+# Command line parsing
+pico-args = "0.5.0"
+# MD5 hashing for token
 md-5 = "0.10.6" # Or latest version
+# random for token
 rand = "0.8" # for random salt
+# bytemuck for bytes to structure conversion
 bytemuck = "1.24"
+# serial for serial work
+serialport = "4.3"
+# Error handling
+anyhow = "1.0"
 
 [dev-dependencies]
 # Add testing dependencies
