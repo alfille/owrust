@@ -105,8 +105,8 @@ mod tests {
     use crate::ds9097e::DS9097E;
     #[test]
     fn t_9097e() {
-		let bh = <DS9097E as BusThread>::spawn( "/dev/ttyS0".to_string(), DS9097E::new );
-		let d = bh.send( BusCmd::Description ) ;
-		assert!(d.is_ok()) 
+        let bh = <DS9097E as BusThread>::spawn("/dev/ttyS0".to_string(), DS9097E::new);
+        let d = bh.send(BusCmd::Description);
+        assert!(d.is_ok())
     }
 }

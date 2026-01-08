@@ -13,8 +13,8 @@
 
 use crate::bus_thread::{BusCmd, BusQuery, BusReturn};
 use anyhow::{Context, Result};
-use std::sync::mpsc;
 use std::ops::Deref;
+use std::sync::mpsc;
 
 /// BusHandle is the external view of the bus
 /// * holds the mpsc handle for sending data
@@ -33,7 +33,7 @@ impl BusHandle {
     }
 }
 
-pub struct BusList (Vec<BusHandle>);
+pub struct BusList(Vec<BusHandle>);
 impl Deref for BusList {
     type Target = Vec<BusHandle>;
 
@@ -67,7 +67,7 @@ impl Default for BusList {
 
 impl BusList {
     pub fn new() -> Self {
-        Self ( Vec::new() )
+        Self(Vec::new())
     }
     pub fn add(&mut self, bus: BusHandle) {
         self.0.push(bus)
