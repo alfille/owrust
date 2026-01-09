@@ -15,6 +15,7 @@ use crate::bus_thread::{BusCmd, BusQuery, BusReturn};
 use anyhow::{Context, Result};
 use std::ops::Deref;
 use std::sync::mpsc;
+use std::sync::{OnceLock, RwLock};
 
 /// BusHandle is the external view of the bus
 /// * holds the mpsc handle for sending data
@@ -80,4 +81,34 @@ impl BusList {
             })
             .collect()
     }
+    pub fn broadcast(cmd: BusCmd) -> Vec<Result<BusReturn>> {
+        if let Ok(list) = global_buses().read() {
+            list.iter().map(|bus| bus.send(cmd.clone())).collect()
+        } else {
+            vec![]
+        }
+    }
+    /// Executes a generic function/closure on every bus in the list
+    /// returns a Vector of the results
+    pub fn for_each_bus<F, T>(&self, f: F) -> Vec<T>
+    where
+        F: Fn(&BusHandle) -> T,
+    {
+        self.iter().map(f).collect()
+    }
+}
+
+/// The global registry of all 1-wire buses
+pub static BUSES: OnceLock<RwLock<BusList>> = OnceLock::new();
+
+/// Helper to initialize or get the global bus list
+pub fn global_buses() -> &'static RwLock<BusList> {
+    BUSES.get_or_init(|| RwLock::new(BusList::new()))
+}
+pub fn register_bus(handle: BusHandle) -> Result<()> {
+    let mut list = global_buses()
+        .write()
+        .map_err(|_| anyhow::anyhow!("Poisoned lock"))?;
+    list.add(handle);
+    Ok(())
 }

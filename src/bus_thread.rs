@@ -12,6 +12,7 @@
 // {c} 2025 Paul H Alfille
 
 use crate::bus_list::BusHandle;
+use crate::rom_id::RomId;
 use anyhow::Result;
 use std::sync::mpsc;
 use std::thread;
@@ -27,12 +28,15 @@ impl BusQuery {
     }
 }
 
+#[derive(Clone)]
 pub enum BusCmd {
     Reset,
     Status,
     Description,
     Write(Vec<u8>),
     RWrite(Vec<u8>),
+    DirRegular,
+    DirAlarm,
 }
 
 pub enum BusReturn {
@@ -40,6 +44,8 @@ pub enum BusReturn {
     Bool(bool),
     Bytes(Vec<u8>),
     String(String),
+    RomDir(Vec<RomId>),
+    DevDir(Vec<String>),
 }
 
 ///pub trait BusThread: Send + Sync + 'static {
@@ -55,6 +61,8 @@ pub trait BusThread {
         self.reset()?;
         self.write(data)
     }
+    fn directory_regular(&mut self) -> Result<BusReturn>;
+    fn directory_alarm(&mut self) -> Result<BusReturn>;
     fn command(&mut self, cmd: BusCmd) -> Result<BusReturn> {
         match cmd {
             BusCmd::Reset => self.reset(),
@@ -62,6 +70,8 @@ pub trait BusThread {
             BusCmd::Description => self.description(),
             BusCmd::Write(data) => self.write(data),
             BusCmd::RWrite(data) => self.reset_write(data),
+            BusCmd::DirRegular => self.directory_regular(),
+            BusCmd::DirAlarm => self.directory_alarm(),
         }
     }
     /// create the bus thread

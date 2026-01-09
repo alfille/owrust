@@ -29,9 +29,9 @@
 // {c} 2025 Paul H Alfille
 
 use std::convert::TryInto;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct RomId([u8; 8]);
 
 impl Deref for RomId {
@@ -39,6 +39,62 @@ impl Deref for RomId {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+impl DerefMut for RomId {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl RomId {
+    /// ### create a ROM id structure
+    /// This is an 8byte array holding the unique 1-wire address
+    /// * byte array (or vector) accepted
+    /// * first 8 bytes copied directly
+    /// * if only 7 bytes available, the CRC8 is generated automatically
+    /// * else an all-zero ROM is created (useless)
+    pub fn new<B>(data: B) -> Self
+    where
+        B: AsRef<[u8]>,
+    {
+        let mut rom = [0u8; 8];
+        let bytes = data.as_ref();
+        if bytes.len() > 7 {
+            rom.copy_from_slice(&bytes[0..8]);
+        } else if bytes.len() == 7 {
+            rom[0] = bytes[0];
+            rom[1] = bytes[1];
+            rom[2] = bytes[2];
+            rom[3] = bytes[3];
+            rom[4] = bytes[4];
+            rom[5] = bytes[5];
+            rom[6] = bytes[6];
+            rom[7] = crc8(bytes);
+        }
+        Self(rom)
+    }
+    pub fn blank() -> Self {
+        Self([0u8; 8])
+    }
+    /// Get family code (first byte)
+    pub fn family(&self) -> u8 {
+        self[0]
+    }
+    /// id is the middle 6 bytes (excluding family code and crc8 -- it's the unique part
+    pub fn id(&self) -> [u8; 6] {
+        self[1..7].try_into().unwrap()
+    }
+    /// Get crc8 check byte
+    pub fn crc8(&self) -> u8 {
+        self[7]
+    }
+    /// Check that crc8 byte is correct
+    pub fn test_crc8(&self) -> bool {
+        crc8(&self.0) == 0u8
+    }
+    /// Create the crc8
+    pub fn make_crc8(&self) -> u8 {
+        crc8(&self[0..7])
     }
 }
 
@@ -82,61 +138,14 @@ const CRC8TABLE: [u8; 256] = [
 ];
 
 pub fn crc8(bytes: &[u8]) -> u8 {
-    bytes.iter()
+    bytes
+        .iter()
         .fold(0u8, |crc, &byte| CRC8TABLE[(crc ^ byte) as usize])
 }
 pub fn crc8_seeded(bytes: &[u8], seed: u8) -> u8 {
-    bytes.iter()
+    bytes
+        .iter()
         .fold(seed, |crc, &byte| CRC8TABLE[(crc ^ byte) as usize])
-}
-
-impl RomId {
-    /// ### create a ROM id structure
-    /// This is an 8byte array holding the unique 1-wire address
-    /// * byte array (or vector) accepted
-    /// * first 8 bytes copied directly
-    /// * if only 7 bytes available, the CRC8 is generated automatically
-    /// * else an all-zero ROM is created (useless)
-    pub fn new<B>(data: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
-        let mut rom = [0u8; 8];
-        let bytes = data.as_ref();
-        if bytes.len() > 7 {
-            rom.copy_from_slice(&bytes[0..8]);
-        } else if bytes.len() == 7 {
-            rom[0] = bytes[0];
-            rom[1] = bytes[1];
-            rom[2] = bytes[2];
-            rom[3] = bytes[3];
-            rom[4] = bytes[4];
-            rom[5] = bytes[5];
-            rom[6] = bytes[6];
-            rom[7] = crc8(bytes);
-        }
-        Self(rom)
-    }
-    /// Get family code (first byte)
-    pub fn family(&self) -> u8 {
-        self[0]
-    }
-    /// id is the middle 6 bytes (excluding family code and crc8 -- it's the unique part
-    pub fn id(&self) -> [u8; 6] {
-        self[1..7].try_into().unwrap()
-    }
-    /// Get crc8 check byte
-    pub fn crc8(&self) -> u8 {
-        self[7]
-    }
-    /// Check that crc8 byte is correct
-    pub fn test_crc8(&self) -> bool {
-        crc8(&self.0) == 0u8
-    }
-    /// Create the crc8
-    pub fn make_crc8(&self) -> u8 {
-        crc8(&self[0..7])
-    }
 }
 
 #[cfg(test)]
