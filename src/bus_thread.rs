@@ -31,16 +31,23 @@ impl BusQuery {
 #[derive(Clone)]
 pub enum BusCmd {
     Reset,
-    Status,
     Description,
-    Write(Vec<u8>),
-    RWrite(Vec<u8>),
+    ReadWrite(Vec<u8>),
+    ResetReadWrite(Vec<u8>),
+    Select(RomId),
     DirRegular,
     DirAlarm,
 }
+impl BusCmd {
+    pub const SEARCH: u8 = 0xF0;
+    pub const ALARM: u8 = 0xEC;
+    pub const SELECT: u8 = 0x55;
+}
 
+#[derive(PartialEq)]
 pub enum BusReturn {
     Bad,
+    Good,
     Bool(bool),
     Bytes(Vec<u8>),
     String(String),
@@ -52,24 +59,25 @@ pub enum BusReturn {
 pub trait BusThread {
     /// Returns the presence pulse (true if any slaves)
     fn reset(&mut self) -> Result<BusReturn>;
-    fn status(&self) -> Result<BusReturn>;
     fn description(&self) -> Result<BusReturn> {
         Ok(BusReturn::String("Unspecified 1-wire bus".to_string()))
     }
-    fn write(&mut self, data: Vec<u8>) -> Result<BusReturn>;
-    fn reset_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
+    fn read_write(&mut self, data: Vec<u8>) -> Result<BusReturn>;
+    fn reset_read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
         self.reset()?;
-        self.write(data)
+        self.read_write(data)
     }
+    /// Send a Match ROM command to select a specific device
+    fn select(&mut self, rom: RomId) -> Result<BusReturn>;
     fn directory_regular(&mut self) -> Result<BusReturn>;
     fn directory_alarm(&mut self) -> Result<BusReturn>;
     fn command(&mut self, cmd: BusCmd) -> Result<BusReturn> {
         match cmd {
             BusCmd::Reset => self.reset(),
-            BusCmd::Status => self.status(),
             BusCmd::Description => self.description(),
-            BusCmd::Write(data) => self.write(data),
-            BusCmd::RWrite(data) => self.reset_write(data),
+            BusCmd::ReadWrite(data) => self.read_write(data),
+            BusCmd::ResetReadWrite(data) => self.reset_read_write(data),
+            BusCmd::Select(data) => self.select(data),
             BusCmd::DirRegular => self.directory_regular(),
             BusCmd::DirAlarm => self.directory_alarm(),
         }

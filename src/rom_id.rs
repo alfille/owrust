@@ -31,8 +31,8 @@
 use std::convert::TryInto;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Clone, Copy)]
-pub struct RomId([u8; 8]);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RomId(pub [u8; 8]);
 
 impl Deref for RomId {
     type Target = [u8; 8];
