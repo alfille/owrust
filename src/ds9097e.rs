@@ -53,17 +53,17 @@ impl BusThread for DS9097E {
     }
     fn select(&mut self, rom: RomId) -> Result<BusReturn> {
         self.reset()?;
-        self.read_write_byte(BusCmd::SELECT)?; // MATCH ROM command
+        self.read_write_byte(BusCmd::ROM_MATCH)?; // MATCH ROM command
         for byte in &rom.0 {
             self.read_write_byte(*byte)?;
         }
         Ok(BusReturn::Good)
     }
     fn directory_regular(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(self.search(BusCmd::SEARCH)?))
+        Ok(BusReturn::RomDir(self.search(BusCmd::ROM_SEARCH)?))
     }
     fn directory_alarm(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(self.search(BusCmd::ALARM)?))
+        Ok(BusReturn::RomDir(self.search(BusCmd::ROM_ALARM_SEARCH)?))
     }
 }
 
@@ -202,7 +202,23 @@ impl DS9097E {
 
         Ok(true)
     }
-}
+    pub fn enable_power(&mut self) -> Result<()> {
+        // High level (logical true) on DTR/RTS provides the positive voltage
+        self.port.write_data_terminal_ready(true)?;
+        self.port.write_request_to_send(true)?;
+        
+        // It is often helpful to wait a few milliseconds for 
+        // parasitic capacitors on the bus to charge up.
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        
+        Ok(())
+    }
+
+    pub fn disable_power(&mut self) -> Result<()> {
+        self.port.write_data_terminal_ready(false)?;
+        self.port.write_request_to_send(false)?;
+        Ok(())
+    }}
 
 #[derive(Debug, Clone)]
 struct ROMSearchState {

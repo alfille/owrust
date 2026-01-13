@@ -39,9 +39,11 @@ pub enum BusCmd {
     DirAlarm,
 }
 impl BusCmd {
-    pub const SEARCH: u8 = 0xF0;
-    pub const ALARM: u8 = 0xEC;
-    pub const SELECT: u8 = 0x55;
+    pub const ROM_SEARCH: u8 = 0xF0;
+    pub const ROM_READ: u8 = 0x33;
+    pub const ROM_MATCH: u8 = 0x55;
+    pub const ROM_SKIP: u8 = 0xCC;
+    pub const ROM_ALARM_SEARCH: u8 = 0xEC;    
 }
 
 #[derive(PartialEq)]
