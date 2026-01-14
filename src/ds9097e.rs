@@ -105,19 +105,59 @@ impl DS9097E {
         Ok(read)
     }
 
+    /// General 1-wir search for all devices  (regular or alarm)
+	/// Since the bus master is error-prone, try 3 times before returning an error
     fn search(&mut self, search_type: u8) -> Result<Vec<RomId>> {
         let mut state = ROMSearchState::new();
         let mut rom_list = Vec::new();
         loop {
-            if self.search_next(&mut state, search_type)? {
-                rom_list.push(state.rom);
-                if state.is_done() {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
+			let saved_state = state.clone() ;
+			// First pass
+			match self.search_next(&mut state, search_type) {
+				Ok(found) => {
+					if !found  {
+						break;
+					}
+					if state.rom.test_crc8() {
+						rom_list.push(state.rom) ;
+						if !state.is_done() {
+							continue ;
+						}
+					}
+				},
+				Err(_) => (),
+			}
+			state = saved_state.clone() ;
+			// second pass
+			match self.search_next(&mut state, search_type) {
+				Ok(found) => {
+					if !found  {
+						break ;
+					}
+					if state.rom.test_crc8() {
+						rom_list.push(state.rom) ;
+						if !state.is_done() {
+							continue ;
+						}
+					}
+				},
+				Err(_) => (),
+			}
+			state = saved_state.clone() ;
+			// third pass
+			let found = self.search_next(&mut state, search_type)? ;
+			if !found  {
+				break ;
+			}
+			if state.rom.test_crc8() {
+				rom_list.push(state.rom) ;
+				if !state.is_done() {
+					continue ;
+				}
+			} else {
+				return Err(anyhow::anyhow!("Bad CRC")) ;
+			}
+		}
         Ok(rom_list)
     }
 
