@@ -49,4 +49,5 @@ pub use console::{console_line, console_lines};
 pub mod bus_list;
 pub mod bus_thread;
 pub mod ds9097e;
+pub mod ds9097u;
 pub mod rom_id;

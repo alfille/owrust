@@ -19,31 +19,34 @@ use serialport::{DataBits, Parity, SerialPort, StopBits};
 use std::io::{Read, Write};
 use std::time::Duration;
 
-enum Ds2480Mode {
+#[derive(PartialEq)]
+enum DS2480Mode {
     Data,
     Command,
 }
 
 pub struct DS9097U {
     port: Box<dyn SerialPort>,
-    mode: Ds2480Mode,
+    mode: DS2480Mode,
     description: String,
 }
 
 impl BusThread for DS9097U {
     /// Reset the 1-Wire bus. Returns true if a presence pulse is detected.
-    fn reset(&mut self) -u> Result<BusReturn> {
-        // To generate a Reset pulse (>480us), we drop the baud rate.
-        self.port.set_baud_rate(9600)?;
-        self.port.write_all(&[0xF0])?;
+    fn reset(&mut self) -> Result<BusReturn> {
+        self.set_command_mode()?;
 
+        // Send reset command
+        self.port.write_all(&[DS9097U::RESET])?;
+        self.port.flush()?;
+
+        // Read response
         let mut buf = [0u8; 1];
         self.port.read_exact(&mut buf)?;
 
-        self.port.set_baud_rate(115_200)?;
-        // If the byte read back is NOT 0xF0, a device pulled the line low (Presence).
-        Ok(BusReturn::Bool(buf[0] != 0xF0))
+        Ok(BusReturn::Bool(buf[0] == DS9097U::RESET_PRESENCE))
     }
+
     fn description(&self) -> Result<BusReturn> {
         Ok(BusReturn::String("Unspecified 1-wire bus".to_string()))
     }
@@ -60,17 +63,17 @@ impl BusThread for DS9097U {
     }
     fn select(&mut self, rom: RomId) -> Result<BusReturn> {
         self.reset()?;
-        self.read_write_byte(BusCmd::SELECT)?; // MATCH ROM command
+        self.read_write_byte(BusCmd::ROM_MATCH)?; // MATCH ROM command
         for byte in &rom.0 {
             self.read_write_byte(*byte)?;
         }
         Ok(BusReturn::Good)
     }
     fn directory_regular(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(self.search(BusCmd::SEARCH)?))
+        Ok(BusReturn::RomDir(self.search(BusCmd::ROM_SEARCH)?))
     }
     fn directory_alarm(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(self.search(BusCmd::ALARM)?))
+        Ok(BusReturn::RomDir(self.search(BusCmd::ROM_ALARM_SEARCH)?))
     }
 }
 
@@ -110,9 +113,62 @@ impl DS9097U {
             .context("Failed to open serial port")?;
         Ok(DS9097U {
             port,
-            mode: Ds2480Mode::Command,
+            mode: DS2480Mode::Command,
             description: format!("DS9097U serial bus-master at {}", path),
         })
+    }
+
+    /// Initialize the DS2480B chip
+    /// Uses DTR to reset to initialized state
+    fn initialize(&mut self) -> Result<()> {
+        // Send a break to reset the DS2480B
+        self.port.write_request_to_send(false)?;
+        std::thread::sleep(Duration::from_millis(2));
+        self.port.write_request_to_send(true)?;
+        std::thread::sleep(Duration::from_millis(2));
+
+        // Flush any pending data
+        self.port.clear(serialport::ClearBuffer::All)?;
+
+        // Send reset command for timing calibration
+        self.port.write_all(&[DS9097U::RESET])?;
+        self.port.flush()?;
+        
+        let mut buf = [0u8; 1];
+        match self.port.read_exact(&mut buf) {
+            Ok(_) => {},
+            Err(_) => {
+                // If timeout, try again
+                self.port.write_all(&[DS9097U::RESET])?;
+                self.port.flush()?;
+                self.port.read_exact(&mut buf)?;
+            }
+        }
+
+        // Switch to command mode
+        self.set_command_mode()?;
+
+        Ok(())
+    }
+
+    /// Switch to data mode
+    fn set_data_mode(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.mode==DS2480Mode::Command {
+            self.port.write_all(&[DS9097U::DATA_MODE])?;
+            self.port.flush()?;
+            self.mode = DS2480Mode::Data;
+        }
+        Ok(())
+    }
+
+    /// Switch to command mode
+    fn set_command_mode(&mut self) -> Result<()> {
+        if self.mode == DS2480Mode::Data {
+            self.port.write_all(&[DS9097U::COMMAND_MODE])?;
+            self.port.flush()?;
+            self.mode = DS2480Mode::Command;
+        }
+        Ok(())
     }
 
     fn read_write_bit(&mut self, bit: bool) -> Result<bool> {
@@ -344,52 +400,6 @@ impl RomId {
     }
 }
 
-/// CRC-8 calculation for 1-Wire (polynomial: X^8 + X^5 + X^4 + 1)
-fn compute_crc8(data: &[u8]) -> u8 {
-    let mut crc = 0u8;
-    for &byte in data {
-        crc ^= byte;
-        for _ in 0..8 {
-            if crc & 0x01 != 0 {
-                crc = (crc >> 1) ^ 0x8C;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    crc
-}
-
-/// DS2480B Command and Response bytes
-mod ds2480b_commands {
-    // Mode Commands
-    pub const DATA_MODE: u8 = 0xE1;
-    pub const COMMAND_MODE: u8 = 0xE3;
-    
-    // Communication Speed
-    pub const SPEED_REGULAR: u8 = 0x00;
-    pub const SPEED_OVERDRIVE: u8 = 0x02;
-    
-    // 1-Wire Reset Command
-    pub const RESET: u8 = 0xC1;
-    
-    // Reset Response Codes
-    pub const RESET_PRESENCE: u8 = 0xCD;  // Device present
-    pub const RESET_NO_PRESENCE: u8 = 0xCC;  // No device
-    pub const RESET_SHORT: u8 = 0xC1;  // Short detected
-    
-    // Strong Pullup
-    pub const STRONG_PULLUP_5V: u8 = 0xED;
-    pub const STRONG_PULLUP_12V: u8 = 0xEE;
-    
-    // 1-Wire ROM Commands (sent in data mode)
-    pub const ROM_SEARCH: u8 = 0xF0;
-    pub const ROM_READ: u8 = 0x33;
-    pub const ROM_MATCH: u8 = 0x55;
-    pub const ROM_SKIP: u8 = 0xCC;
-    pub const ROM_ALARM_SEARCH: u8 = 0xEC;
-}
-
 /// 1-Wire bus controller for DS9097U (DS2480B-based adapter)
 pub struct OneWireBus {
     port: Box<dyn SerialPort>,
@@ -419,73 +429,6 @@ impl OneWireBus {
         bus.initialize()?;
 
         Ok(bus)
-    }
-
-    /// Initialize the DS2480B chip
-    fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Send a break to reset the DS2480B
-        self.port.write_request_to_send(false)?;
-        std::thread::sleep(Duration::from_millis(2));
-        self.port.write_request_to_send(true)?;
-        std::thread::sleep(Duration::from_millis(2));
-
-        // Flush any pending data
-        self.port.clear(serialport::ClearBuffer::All)?;
-
-        // Send reset command for timing calibration
-        self.port.write_all(&[ds2480b_commands::RESET])?;
-        self.port.flush()?;
-        
-        let mut buf = [0u8; 1];
-        match self.port.read_exact(&mut buf) {
-            Ok(_) => {},
-            Err(_) => {
-                // If timeout, try again
-                self.port.write_all(&[ds2480b_commands::RESET])?;
-                self.port.flush()?;
-                self.port.read_exact(&mut buf)?;
-            }
-        }
-
-        // Switch to command mode
-        self.set_command_mode()?;
-
-        Ok(())
-    }
-
-    /// Switch to data mode
-    fn set_data_mode(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if !self.in_data_mode {
-            self.port.write_all(&[ds2480b_commands::DATA_MODE])?;
-            self.port.flush()?;
-            self.in_data_mode = true;
-        }
-        Ok(())
-    }
-
-    /// Switch to command mode
-    fn set_command_mode(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if self.in_data_mode {
-            self.port.write_all(&[ds2480b_commands::COMMAND_MODE])?;
-            self.port.flush()?;
-            self.in_data_mode = false;
-        }
-        Ok(())
-    }
-
-    /// Reset the 1-Wire bus and check for device presence
-    pub fn reset(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
-        self.set_command_mode()?;
-
-        // Send reset command
-        self.port.write_all(&[ds2480b_commands::RESET])?;
-        self.port.flush()?;
-
-        // Read response
-        let mut buf = [0u8; 1];
-        self.port.read_exact(&mut buf)?;
-
-        Ok(buf[0] == ds2480b_commands::RESET_PRESENCE)
     }
 
     /// Write a byte to the 1-Wire bus (must be in data mode)
@@ -702,3 +645,4 @@ impl SearchState {
         }
     }
 }
+*/
