@@ -307,30 +307,6 @@ impl DS9097U {
         Ok(())
     }}
 
-#[derive(Debug, Clone)]
-struct ROMSearchState {
-    rom: RomId,
-    last_discrepancy: i8,
-    last_device_flag: bool,
-}
-
-impl ROMSearchState {
-    /// Creates a state initialized for the very first search
-    pub fn new() -> Self {
-        Self {
-            rom: RomId::blank(),
-            last_discrepancy: -1,
-            last_device_flag: false,
-        }
-    }
-    pub fn done(&mut self) {
-        self.last_device_flag = true;
-    }
-    pub fn is_done(&self) -> bool {
-        self.last_device_flag
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

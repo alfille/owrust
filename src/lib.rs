@@ -51,3 +51,4 @@ pub mod bus_thread;
 pub mod ds9097e;
 pub mod ds9097u;
 pub mod rom_id;
+pub mod search_state;
