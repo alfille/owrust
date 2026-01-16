@@ -18,6 +18,7 @@ use anyhow::{Context, Result};
 use serialport::{DataBits, Parity, SerialPort, StopBits};
 use std::io::{Read, Write};
 use std::time::Duration;
+use crate::search_state::ROMSearchState ;
 
 #[derive(PartialEq)]
 enum DS2480Mode {

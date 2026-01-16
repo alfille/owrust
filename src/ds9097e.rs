@@ -17,6 +17,7 @@ use anyhow::{Context, Result};
 use serialport::{DataBits, Parity, SerialPort, StopBits};
 use std::io::{Read, Write};
 use std::time::Duration;
+use crate::search_state::ROMSearchState ;
 
 pub struct DS9097E {
     port: Box<dyn SerialPort>,
@@ -259,39 +260,3 @@ impl DS9097E {
         self.port.write_request_to_send(false)?;
         Ok(())
     }}
-
-#[derive(Debug, Clone)]
-struct ROMSearchState {
-    rom: RomId,
-    last_discrepancy: i8,
-    last_device_flag: bool,
-}
-
-impl ROMSearchState {
-    /// Creates a state initialized for the very first search
-    pub fn new() -> Self {
-        Self {
-            rom: RomId::blank(),
-            last_discrepancy: -1,
-            last_device_flag: false,
-        }
-    }
-    pub fn done(&mut self) {
-        self.last_device_flag = true;
-    }
-    pub fn is_done(&self) -> bool {
-        self.last_device_flag
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ds9097e::DS9097E;
-    #[test]
-    fn t_9097e() {
-        let bh = <DS9097E as BusThread>::spawn("/dev/ttyS0".to_string(), DS9097E::new);
-        let d = bh.send(BusCmd::Description);
-        assert!(d.is_ok())
-    }
-}
