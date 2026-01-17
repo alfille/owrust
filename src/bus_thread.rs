@@ -43,7 +43,7 @@ impl BusCmd {
     pub const ROM_READ: u8 = 0x33;
     pub const ROM_MATCH: u8 = 0x55;
     pub const ROM_SKIP: u8 = 0xCC;
-    pub const ROM_ALARM_SEARCH: u8 = 0xEC;    
+    pub const ROM_ALARM_SEARCH: u8 = 0xEC;
 }
 
 #[derive(PartialEq)]
@@ -70,7 +70,7 @@ pub trait BusThread {
         self.read_write(data)
     }
     /// Send a Match ROM command to select a specific device
-    fn select(&mut self, rom: RomId) -> Result<BusReturn>;
+    fn select(&mut self, rom: &RomId) -> Result<BusReturn>;
     fn directory_regular(&mut self) -> Result<BusReturn>;
     fn directory_alarm(&mut self) -> Result<BusReturn>;
     fn command(&mut self, cmd: BusCmd) -> Result<BusReturn> {
@@ -79,7 +79,7 @@ pub trait BusThread {
             BusCmd::Description => self.description(),
             BusCmd::ReadWrite(data) => self.read_write(data),
             BusCmd::ResetReadWrite(data) => self.reset_read_write(data),
-            BusCmd::Select(data) => self.select(data),
+            BusCmd::Select(data) => self.select(&data),
             BusCmd::DirRegular => self.directory_regular(),
             BusCmd::DirAlarm => self.directory_alarm(),
         }

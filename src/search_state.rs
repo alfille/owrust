@@ -34,5 +34,12 @@ impl ROMSearchState {
     pub fn is_done(&self) -> bool {
         self.last_device_flag
     }
+    pub fn valid_rom(&self) -> bool {
+        self.rom.test_crc8()
+    }
 }
-
+impl Default for ROMSearchState {
+    fn default() -> Self {
+        Self::new()
+    }
+}

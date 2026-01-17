@@ -97,7 +97,7 @@ impl RomId {
         crc8(&self[0..7])
     }
     /// deref
-    pub fn as_bytes( &self) -> &[u8;8] {
+    pub fn as_bytes(&self) -> &[u8; 8] {
         &self.0
     }
 }

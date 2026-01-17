@@ -13,11 +13,11 @@
 
 use crate::bus_thread::{BusCmd, BusReturn, BusThread};
 use crate::rom_id::RomId;
+use crate::search_state::ROMSearchState;
 use anyhow::{Context, Result};
 use serialport::{DataBits, Parity, SerialPort, StopBits};
 use std::io::{Read, Write};
 use std::time::Duration;
-use crate::search_state::ROMSearchState ;
 
 pub struct DS9097E {
     port: Box<dyn SerialPort>,
@@ -52,7 +52,7 @@ impl BusThread for DS9097E {
         self.reset()?;
         self.read_write(data)
     }
-    fn select(&mut self, rom: RomId) -> Result<BusReturn> {
+    fn select(&mut self, rom: &RomId) -> Result<BusReturn> {
         self.reset()?;
         self.read_write_byte(BusCmd::ROM_MATCH)?; // MATCH ROM command
         for byte in &rom.0 {
@@ -107,58 +107,53 @@ impl DS9097E {
     }
 
     /// General 1-wir search for all devices  (regular or alarm)
-	/// Since the bus master is error-prone, try 3 times before returning an error
+    /// Since the bus master is error-prone, try 3 times before returning an error
     fn search(&mut self, search_type: u8) -> Result<Vec<RomId>> {
         let mut state = ROMSearchState::new();
         let mut rom_list = Vec::new();
         loop {
-			let saved_state = state.clone() ;
-			// First pass
-			match self.search_next(&mut state, search_type) {
-				Ok(found) => {
-					if !found  {
-						break;
-					}
-					if state.rom.test_crc8() {
-						rom_list.push(state.rom) ;
-						if !state.is_done() {
-							continue ;
-						}
-					}
-				},
-				Err(_) => (),
-			}
-			state = saved_state.clone() ;
-			// second pass
-			match self.search_next(&mut state, search_type) {
-				Ok(found) => {
-					if !found  {
-						break ;
-					}
-					if state.rom.test_crc8() {
-						rom_list.push(state.rom) ;
-						if !state.is_done() {
-							continue ;
-						}
-					}
-				},
-				Err(_) => (),
-			}
-			state = saved_state.clone() ;
-			// third pass
-			let found = self.search_next(&mut state, search_type)? ;
-			if !found  {
-				break ;
-			}
-			if state.rom.test_crc8() {
-				rom_list.push(state.rom) ;
-				if !state.is_done() {
-					continue ;
-				}
-			} else {
-				return Err(anyhow::anyhow!("Bad CRC")) ;
-			}
-		}
+            let saved_state = state.clone();
+            // First pass
+            if let Ok(found) = self.search_next(&mut state, search_type) {
+                if !found {
+                    break;
+                }
+                if state.valid_rom() {
+                    rom_list.push(state.rom);
+                    if !state.is_done() {
+                        continue;
+                    }
+                }
+            }
+            state = saved_state.clone();
+            // second pass
+            if let Ok(found) = self.search_next(&mut state, search_type) {
+                if !found {
+                    break;
+                }
+                if state.valid_rom() {
+                    rom_list.push(state.rom);
+                    if !state.is_done() {
+                        continue;
+                    }
+                }
+            }
+            state = saved_state.clone();
+            // third pass
+            // io error are returned. CRC error is signalled
+            let found = self.search_next(&mut state, search_type)?;
+            if !found {
+                break;
+            }
+            if state.valid_rom() {
+                rom_list.push(state.rom);
+                if !state.is_done() {
+                    continue;
+                }
+            } else {
+                return Err(anyhow::anyhow!("Bad CRC"));
+            }
+        }
         Ok(rom_list)
     }
 
@@ -247,11 +242,11 @@ impl DS9097E {
         // High level (logical true) on DTR/RTS provides the positive voltage
         self.port.write_data_terminal_ready(true)?;
         self.port.write_request_to_send(true)?;
-        
-        // It is often helpful to wait a few milliseconds for 
+
+        // It is often helpful to wait a few milliseconds for
         // parasitic capacitors on the bus to charge up.
         std::thread::sleep(std::time::Duration::from_millis(50));
-        
+
         Ok(())
     }
 
@@ -259,4 +254,5 @@ impl DS9097E {
         self.port.write_data_terminal_ready(false)?;
         self.port.write_request_to_send(false)?;
         Ok(())
-    }}
+    }
+}
