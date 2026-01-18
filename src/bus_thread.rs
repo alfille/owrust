@@ -13,6 +13,7 @@
 
 use crate::bus_list::BusHandle;
 use crate::rom_id::RomId;
+use crate::search_state::ROMSearchState;
 use anyhow::Result;
 use std::sync::mpsc;
 use std::thread;
@@ -38,7 +39,9 @@ pub enum BusCmd {
     DirRegular,
     DirAlarm,
 }
-impl BusCmd {
+
+pub struct OneWireCommands;
+impl OneWireCommands {
     pub const ROM_SEARCH: u8 = 0xF0;
     pub const ROM_READ: u8 = 0x33;
     pub const ROM_MATCH: u8 = 0x55;
@@ -116,6 +119,90 @@ pub trait BusThread {
             }
         });
         BusHandle { tx }
+    }
+    fn read_bit(&mut self) -> Result<bool> ;
+    fn write_bit(&mut self, bit:bool) -> Result<()> ;
+    fn write_byte(&mut self, write:u8) -> Result<()> ;
+    /// Search for the next device on the bus
+    ///
+    /// This implements the core 1-Wire search algorithm using the binary tree
+    /// search method. It handles discrepancies by exploring all branches.
+    fn search_next(&mut self, state: &mut ROMSearchState, search_type: u8) -> Result<bool> {
+        // Check for presence pulse
+        if self.reset()? == BusReturn::Bool(false) {
+            state.done();
+            return Ok(false);
+        }
+
+        // Send search ROM command (0xF0)
+        self.write_byte(search_type)?;
+
+        let mut id_bit_number = 1;
+        let mut last_zero = 0;
+        let mut rom_byte_number = 0;
+        let mut rom_byte_mask = 1u8;
+
+        // Perform the search algorithm
+        while rom_byte_number < 8 {
+            // Read bit and its complement
+            let id_bit = self.read_bit()?;
+            let cmp_id_bit = self.read_bit()?;
+
+            // Check for search conflict or errors
+            let search_direction = if id_bit && cmp_id_bit {
+                // No devices responded
+                return Ok(false);
+            } else if id_bit != cmp_id_bit {
+                // All devices have the same bit value at this position
+                id_bit
+            } else {
+                // Discrepancy: both 0s and 1s present
+                // This is where the search algorithm makes its choice
+                if id_bit_number < state.last_discrepancy {
+                    // Follow previous path
+                    (state.rom[rom_byte_number] & rom_byte_mask) != 0
+                } else if id_bit_number == state.last_discrepancy {
+                    // Take the 1 branch at the last discrepancy point
+                    true
+                } else {
+                    // Take the 0 branch for new discrepancies
+                    false
+                }
+            };
+
+            // Update ROM bit
+            if search_direction {
+                state.rom[rom_byte_number] |= rom_byte_mask;
+            } else {
+                state.rom[rom_byte_number] &= !rom_byte_mask;
+            }
+
+            // Write the chosen direction back to the bus
+            let _ = self.write_bit(search_direction)?;
+
+            // Track the last discrepancy
+            if !id_bit && !cmp_id_bit && !search_direction {
+                last_zero = id_bit_number;
+            }
+
+            // Move to next bit
+            id_bit_number += 1;
+            rom_byte_mask <<= 1;
+
+            if rom_byte_mask == 0 {
+                rom_byte_number += 1;
+                rom_byte_mask = 1;
+            }
+        }
+
+        // Update search state for next iteration
+        state.last_discrepancy = last_zero;
+
+        if state.last_discrepancy == 0 {
+            state.done();
+        }
+
+        Ok(true)
     }
 }
 

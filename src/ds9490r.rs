@@ -1,11 +1,8 @@
-//! ### DS9097U 1-wire bus master struct
-//! * uses the DS2480B chip internally
-//! * Serial port
-//! * At reset, and byte level
-//!
-//! The DS2480B is an intelligent serial-to-1-Wire bridge that handles all timing
-//! internally. Unlike the passive DS9097E, it uses a command protocol where
-//! data and control information are merged into a single byte stream.
+//! ### DS9490R 1-wire bus master
+//! * uses the DS2490 chip internally
+//! * native USB
+//! * USB vendor-specific commands to control the 1-Wire bus.
+//! * USB IDs: VendorID=0x04FA, ProductID=0x2490
 
 // owrust project
 // https://github.com/alfille/owrust
@@ -16,11 +13,11 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use crate::bus_thread::{BusReturn, BusThread, OneWireCommands};
+use crate::bus_thread::{BusCmd, BusReturn, BusThread, OneWireCommands};
 use crate::rom_id::RomId;
 use crate::search_state::ROMSearchState;
 use anyhow::{Context, Result};
-use serialport::{DataBits, Parity, SerialPort, StopBits};
+use rusb::{DeviceHandle, Context, UsbContext};
 use std::io::{Read, Write};
 use std::time::Duration;
 
@@ -62,20 +59,6 @@ impl BusThread for DS9097U {
         }
         Ok(BusReturn::Bytes(read))
     }
-    /// Read a bit from the 1-Wire bus
-    fn read_bit(&mut self) -> Result<bool> {
-        // Read a full byte and check the LSB
-        let byte = self.read_write_byte(0xFF)?;
-        Ok((byte & 0x01) != 0)
-    }
-    fn write_bit(&mut self, bit:bool) -> Result<()> {
-        let _ = self.read_write_bit(bit) ? ;
-        Ok(())
-    }
-    fn write_byte(&mut self, write: u8) -> Result<()> {
-        let _ = self.read_write_byte( write ) ? ;
-        Ok(())
-    }
     fn reset_read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
         self.reset()?;
         self.read_write(data)
@@ -92,9 +75,7 @@ impl BusThread for DS9097U {
         Ok(BusReturn::RomDir(self.search(OneWireCommands::ROM_SEARCH)?))
     }
     fn directory_alarm(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(
-            self.search(OneWireCommands::ROM_ALARM_SEARCH)?,
-        ))
+        Ok(BusReturn::RomDir(self.search(OneWireCommands::ROM_ALARM_SEARCH)?))
     }
 }
 
@@ -111,13 +92,13 @@ impl DS9097U {
     pub const RESET: u8 = 0xC1;
 
     // Reset Response Codes
-    const RESET_PRESENCE: u8 = 0xCD; // Device present
-    const RESET_NO_PRESENCE: u8 = 0xCC; // No device
-    const RESET_SHORT: u8 = 0xC1; // Short detected
+    pub const RESET_PRESENCE: u8 = 0xCD; // Device present
+    pub const RESET_NO_PRESENCE: u8 = 0xCC; // No device
+    pub const RESET_SHORT: u8 = 0xC1; // Short detected
 
     // Strong Pullup
-    const STRONG_PULLUP_5V: u8 = 0xED;
-    const STRONG_PULLUP_12V: u8 = 0xEE;
+    pub const STRONG_PULLUP_5V: u8 = 0xED;
+    pub const STRONG_PULLUP_12V: u8 = 0xEE;
 
     // 1-Wire ROM Commands (sent in data mode)
 
@@ -206,6 +187,13 @@ impl DS9097U {
             self.mode = DS2480Mode::Command;
         }
         Ok(())
+    }
+
+    /// Read a bit from the 1-Wire bus
+    fn read_bit(&mut self) -> Result<bool> {
+        // Read a full byte and check the LSB
+        let byte = self.read_write_byte(0xFF)?;
+        Ok((byte & 0x01) != 0)
     }
 
     fn read_write_byte(&mut self, write: u8) -> Result<u8> {

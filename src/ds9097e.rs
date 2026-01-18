@@ -11,7 +11,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use crate::bus_thread::{BusCmd, BusReturn, BusThread};
+use crate::bus_thread::{BusReturn, BusThread, OneWireCommands};
 use crate::rom_id::RomId;
 use crate::search_state::ROMSearchState;
 use anyhow::{Context, Result};
@@ -52,19 +52,32 @@ impl BusThread for DS9097E {
         self.reset()?;
         self.read_write(data)
     }
+    fn read_bit(&mut self) -> Result<bool> {
+        self.read_write_bit(true)
+    }
+    fn write_bit(&mut self, bit:bool) -> Result<()> {
+        let _ = self.read_write_bit(bit) ? ;
+        Ok(())
+    }
+    fn write_byte(&mut self, write: u8 ) -> Result<()> {
+        let _ = self.read_write_byte( write ) ? ;
+        Ok(())
+    }
     fn select(&mut self, rom: &RomId) -> Result<BusReturn> {
         self.reset()?;
-        self.read_write_byte(BusCmd::ROM_MATCH)?; // MATCH ROM command
+        self.read_write_byte(OneWireCommands::ROM_MATCH)?; // MATCH ROM command
         for byte in &rom.0 {
             self.read_write_byte(*byte)?;
         }
         Ok(BusReturn::Good)
     }
     fn directory_regular(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(self.search(BusCmd::ROM_SEARCH)?))
+        Ok(BusReturn::RomDir(self.search(OneWireCommands::ROM_SEARCH)?))
     }
     fn directory_alarm(&mut self) -> Result<BusReturn> {
-        Ok(BusReturn::RomDir(self.search(BusCmd::ROM_ALARM_SEARCH)?))
+        Ok(BusReturn::RomDir(
+            self.search(OneWireCommands::ROM_ALARM_SEARCH)?,
+        ))
     }
 }
 
@@ -105,7 +118,7 @@ impl DS9097E {
         }
         Ok(read)
     }
-
+    
     /// General 1-wir search for all devices  (regular or alarm)
     /// Since the bus master is error-prone, try 3 times before returning an error
     fn search(&mut self, search_type: u8) -> Result<Vec<RomId>> {
@@ -157,87 +170,6 @@ impl DS9097E {
         Ok(rom_list)
     }
 
-    /// Search for the next device on the bus
-    ///
-    /// This implements the core 1-Wire search algorithm using the binary tree
-    /// search method. It handles discrepancies by exploring all branches.
-    fn search_next(&mut self, state: &mut ROMSearchState, search_type: u8) -> Result<bool> {
-        // Check for presence pulse
-        if self.reset()? == BusReturn::Bool(false) {
-            state.done();
-            return Ok(false);
-        }
-
-        // Send search ROM command (0xF0)
-        self.read_write_byte(search_type)?;
-
-        let mut id_bit_number = 1;
-        let mut last_zero = 0;
-        let mut rom_byte_number = 0;
-        let mut rom_byte_mask = 1u8;
-
-        // Perform the search algorithm
-        while rom_byte_number < 8 {
-            // Read bit and its complement
-            let id_bit = self.read_write_bit(true)?;
-            let cmp_id_bit = self.read_write_bit(true)?;
-
-            // Check for search conflict or errors
-            let search_direction = if id_bit && cmp_id_bit {
-                // No devices responded
-                return Ok(false);
-            } else if id_bit != cmp_id_bit {
-                // All devices have the same bit value at this position
-                id_bit
-            } else {
-                // Discrepancy: both 0s and 1s present
-                // This is where the search algorithm makes its choice
-                if id_bit_number < state.last_discrepancy {
-                    // Follow previous path
-                    (state.rom[rom_byte_number] & rom_byte_mask) != 0
-                } else if id_bit_number == state.last_discrepancy {
-                    // Take the 1 branch at the last discrepancy point
-                    true
-                } else {
-                    // Take the 0 branch for new discrepancies
-                    false
-                }
-            };
-
-            // Update ROM bit
-            if search_direction {
-                state.rom[rom_byte_number] |= rom_byte_mask;
-            } else {
-                state.rom[rom_byte_number] &= !rom_byte_mask;
-            }
-
-            // Write the chosen direction back to the bus
-            let _ = self.read_write_bit(search_direction)?;
-
-            // Track the last discrepancy
-            if !id_bit && !cmp_id_bit && !search_direction {
-                last_zero = id_bit_number;
-            }
-
-            // Move to next bit
-            id_bit_number += 1;
-            rom_byte_mask <<= 1;
-
-            if rom_byte_mask == 0 {
-                rom_byte_number += 1;
-                rom_byte_mask = 1;
-            }
-        }
-
-        // Update search state for next iteration
-        state.last_discrepancy = last_zero;
-
-        if state.last_discrepancy == 0 {
-            state.done();
-        }
-
-        Ok(true)
-    }
     pub fn enable_power(&mut self) -> Result<()> {
         // High level (logical true) on DTR/RTS provides the positive voltage
         self.port.write_data_terminal_ready(true)?;
