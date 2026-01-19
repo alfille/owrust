@@ -12,6 +12,7 @@
 // {c} 2025 Paul H Alfille
 
 use crate::bus_thread::{BusReturn, BusThread, OneWireCommands};
+use crate::bus_rw::BusReadWrite;
 use crate::rom_id::RomId;
 use crate::search_state::ROMSearchState;
 use anyhow::{Context, Result};
@@ -24,6 +25,34 @@ pub struct DS9097E {
     description: String,
 }
 
+impl BusReadWrite for DS9097E {
+    fn read_bit(&mut self) -> Result<bool> {
+        self.read_write_bit(true)
+    }
+    fn write_bit(&mut self, bit:bool) -> Result<()> {
+        let _ = self.read_write_bit(bit) ? ;
+        Ok(())
+    }
+    fn read_byte(&mut self) -> Result<u8> {
+        let mut read = 0u8;
+        let mut probe = 1u8;
+        for _ in 0..8 {
+            if self.read_write_bit(true)? {
+                read |= probe;
+            }
+            probe <<= 1;
+        }
+        Ok(read)
+    }
+    fn write_byte(&mut self, write: u8) -> Result<()> {
+        let mut probe = 1u8;
+        for _ in 0..8 {
+            let _ = self.read_write_bit((write & probe) != 0u8)? ;
+            probe <<= 1;
+        }
+        Ok(())
+    }
+}
 impl BusThread for DS9097E {
     /// Reset the 1-Wire bus. Returns true if a presence pulse is detected.
     fn reset(&mut self) -> Result<BusReturn> {
@@ -41,33 +70,11 @@ impl BusThread for DS9097E {
     fn description(&self) -> Result<BusReturn> {
         Ok(BusReturn::String("Unspecified 1-wire bus".to_string()))
     }
-    fn read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
-        let mut read = Vec::<u8>::new();
-        for byte in &data {
-            read.push(self.read_write_byte(*byte)?);
-        }
-        Ok(BusReturn::Bytes(read))
-    }
-    fn reset_read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
-        self.reset()?;
-        self.read_write(data)
-    }
-    fn read_bit(&mut self) -> Result<bool> {
-        self.read_write_bit(true)
-    }
-    fn write_bit(&mut self, bit:bool) -> Result<()> {
-        let _ = self.read_write_bit(bit) ? ;
-        Ok(())
-    }
-    fn write_byte(&mut self, write: u8 ) -> Result<()> {
-        let _ = self.read_write_byte( write ) ? ;
-        Ok(())
-    }
     fn select(&mut self, rom: &RomId) -> Result<BusReturn> {
         self.reset()?;
-        self.read_write_byte(OneWireCommands::ROM_MATCH)?; // MATCH ROM command
+        self.write_byte(OneWireCommands::ROM_MATCH)?; // MATCH ROM command
         for byte in &rom.0 {
-            self.read_write_byte(*byte)?;
+            self.write_byte(*byte)?;
         }
         Ok(BusReturn::Good)
     }
@@ -105,18 +112,6 @@ impl DS9097E {
         let mut buf = [0u8; 1];
         self.port.read_exact(&mut buf)?;
         Ok(buf[0] == 0xFF) // If bit is 1, we get 0xFF back
-    }
-
-    fn read_write_byte(&mut self, write: u8) -> Result<u8> {
-        let mut read = 0u8;
-        let mut probe = 1u8;
-        for _ in 0..8 {
-            if self.read_write_bit((write & probe) != 0u8)? {
-                read |= probe;
-            }
-            probe <<= 1;
-        }
-        Ok(read)
     }
     
     /// General 1-wir search for all devices  (regular or alarm)

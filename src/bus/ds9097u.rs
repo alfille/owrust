@@ -17,6 +17,7 @@
 // {c} 2025 Paul H Alfille
 
 use crate::bus_thread::{BusReturn, BusThread, OneWireCommands};
+use crate::bus_rw::BusReadWrite;
 use crate::rom_id::RomId;
 use crate::search_state::ROMSearchState;
 use anyhow::{Context, Result};
@@ -36,6 +37,15 @@ pub struct DS9097U {
     description: String,
 }
 
+impl BusReadWrite for DS9097U {
+    fn read_byte(&mut self) -> Result<u8> {
+        self.read_write_byte( 0xFF )
+    }
+    fn write_byte(&mut self, write: u8) -> Result<()> {
+        let _ = self.read_write_byte(write)?;
+        Ok(())
+    }
+}
 impl BusThread for DS9097U {
     /// Reset the 1-Wire bus. Returns true if a presence pulse is detected.
     fn reset(&mut self) -> Result<BusReturn> {
@@ -54,27 +64,6 @@ impl BusThread for DS9097U {
 
     fn description(&self) -> Result<BusReturn> {
         Ok(BusReturn::String("Unspecified 1-wire bus".to_string()))
-    }
-    fn read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
-        let mut read = Vec::<u8>::new();
-        for byte in &data {
-            read.push(self.read_write_byte(*byte)?);
-        }
-        Ok(BusReturn::Bytes(read))
-    }
-    /// Read a bit from the 1-Wire bus
-    fn read_bit(&mut self) -> Result<bool> {
-        // Read a full byte and check the LSB
-        let byte = self.read_write_byte(0xFF)?;
-        Ok((byte & 0x01) != 0)
-    }
-    fn write_bit(&mut self, bit:bool) -> Result<()> {
-        let _ = self.read_write_bit(bit) ? ;
-        Ok(())
-    }
-    fn write_byte(&mut self, write: u8) -> Result<()> {
-        let _ = self.read_write_byte( write ) ? ;
-        Ok(())
     }
     fn reset_read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
         self.reset()?;
@@ -322,30 +311,3 @@ impl DS9097U {
         Ok(true)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ds9097u::DS9097U;
-    #[test]
-    fn t_9097e() {
-        let bh = <DS9097U as BusThread>::spawn("/dev/ttyS0".to_string(), DS9097U::new);
-        let d = bh.send(BusCmd::Description);
-        assert!(d.is_ok())
-    }
-}
-/*
-    /// Skip ROM command (address all devices)
-    pub fn skip_rom(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.reset()?;
-        self.write_byte(OneWireCommands::ROM_SKIP)?;
-        Ok(())
-    }
-
-    /// Check if a device is present
-    pub fn is_present(&mut self, address: &RomId) -> Result<bool, Box<dyn std::error::Error>> {
-        self.select(address)?;
-        Ok(true)
-    }
-}
-*/

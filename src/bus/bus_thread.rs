@@ -17,6 +17,7 @@ use crate::search_state::ROMSearchState;
 use anyhow::Result;
 use std::sync::mpsc;
 use std::thread;
+use crate::bus_rw::BusReadWrite ;
 
 pub struct BusQuery {
     cmd: BusCmd,
@@ -61,7 +62,7 @@ pub enum BusReturn {
 }
 
 ///pub trait BusThread: Send + Sync + 'static {
-pub trait BusThread {
+pub trait BusThread: BusReadWrite {
     /// Returns the presence pulse (true if any slaves)
     fn reset(&mut self) -> Result<BusReturn>;
     fn description(&self) -> Result<BusReturn> {
@@ -120,13 +121,6 @@ pub trait BusThread {
         });
         BusHandle { tx }
     }
-    fn read_bit(&mut self) -> Result<bool> ;
-    fn write_bit(&mut self, bit:bool) -> Result<()> ;
-    fn write_byte(&mut self, write:u8) -> Result<()> ;
-    /// Search for the next device on the bus
-    ///
-    /// This implements the core 1-Wire search algorithm using the binary tree
-    /// search method. It handles discrepancies by exploring all branches.
     fn search_next(&mut self, state: &mut ROMSearchState, search_type: u8) -> Result<bool> {
         // Check for presence pulse
         if self.reset()? == BusReturn::Bool(false) {
