@@ -13,7 +13,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use crate::bus_thread::{BusCmd, BusReturn, BusThread, OneWireCommands};
+use crate::bus_thread::{BusThread, OneWireCommands};
 use crate::rom_id::RomId;
 use crate::search_state::ROMSearchState;
 use anyhow::{Context, Result};
@@ -34,6 +34,9 @@ pub struct DS9097U {
 }
 
 impl BusThread for DS9097U {
+    fn get_description(&self) -> String {
+        self.description.clone()
+    }
     /// Reset the 1-Wire bus. Returns true if a presence pulse is detected.
     fn reset(&mut self) -> Result<BusReturn> {
         self.set_command_mode()?;
@@ -49,16 +52,6 @@ impl BusThread for DS9097U {
         Ok(BusReturn::Bool(buf[0] == DS9097U::RESET_PRESENCE))
     }
 
-    fn description(&self) -> Result<BusReturn> {
-        Ok(BusReturn::String("Unspecified 1-wire bus".to_string()))
-    }
-    fn read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
-        let mut read = Vec::<u8>::new();
-        for byte in &data {
-            read.push(self.read_write_byte(*byte)?);
-        }
-        Ok(BusReturn::Bytes(read))
-    }
     fn reset_read_write(&mut self, data: Vec<u8>) -> Result<BusReturn> {
         self.reset()?;
         self.read_write(data)

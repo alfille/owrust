@@ -37,8 +37,11 @@
 // {c} 2025 Paul H Alfille
 
 pub mod bus_list;
-pub mod bus_thread;
 pub mod bus_rw;
+pub mod bus_search;
+pub mod bus_spawn;
+pub mod bus_thread;
+pub mod search_state;
 
 pub mod ds9097e;
 pub mod ds9097u;

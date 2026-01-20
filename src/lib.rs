@@ -49,4 +49,3 @@ pub use console::{console_line, console_lines};
 pub mod bus;
 use crate::bus::*;
 pub mod rom_id;
-pub mod search_state;

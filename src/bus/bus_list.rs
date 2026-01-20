@@ -11,7 +11,8 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use crate::bus_thread::{BusCmd, BusQuery, BusReturn};
+use crate::bus_spawn::BusQuery;
+use crate::bus_thread::{BusCmd, BusReturn};
 use anyhow::{Context, Result};
 use std::ops::Deref;
 use std::sync::mpsc;

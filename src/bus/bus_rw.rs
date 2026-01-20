@@ -15,24 +15,26 @@ use anyhow::Result;
 
 ///pub trait BusReadWrite
 pub trait BusReadWrite {
+    /// Returns the presence pulse (true if any slaves)
+    fn reset(&mut self) -> Result<bool>;
     fn read_bit(&mut self) -> Result<bool> {
         let b = self.read_byte()?;
         Ok((b & 0x01) != 0)
     }
-    fn write_bit(&mut self, bit:bool) -> Result<()> {
+    fn write_bit(&mut self, bit: bool) -> Result<()> {
         if bit {
             self.write_byte(0xFF)
         } else {
             self.write_byte(0x00)
         }
     }
-    fn read_byte(&mut self) -> Result<u8> ;
-    fn write_byte(&mut self, write:u8) -> Result<()> ;
-    fn read_bytes(&mut self, n: u32) -> Result<Vec<u8>> {
-        let mut v = Vec::new() ;
+    fn read_byte(&mut self) -> Result<u8>;
+    fn write_byte(&mut self, write: u8) -> Result<()>;
+    fn read_bytes(&mut self, n: usize) -> Result<Vec<u8>> {
+        let mut v = Vec::new();
         for _ in 0..n {
-            let b = self.read_byte() ?;
-            v.push(b) ;
+            let b = self.read_byte()?;
+            v.push(b);
         }
         Ok(v)
     }
