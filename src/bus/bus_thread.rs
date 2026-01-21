@@ -26,6 +26,7 @@ pub enum BusCmd {
     Search,
     AlarmSearch,
     Power(bool),
+    Compound(Vec<BusCmd>),
 }
 
 pub struct OneWireCommands;
@@ -46,6 +47,15 @@ pub enum BusReturn {
     String(String),
     RomDir(Vec<RomId>),
     DevDir(Vec<String>),
+}
+impl BusReturn {
+    /// for compound, get the bytes part
+    fn get_bytes( self ) -> Option<Vec<u8>> {
+        match self {
+            BusReturn::Bytes(b) => Some(b),
+            _ => None,
+        }
+    }
 }
 
 ///pub trait BusThread: Send + Sync + 'static {
@@ -78,7 +88,20 @@ pub trait BusThread: BusReadWrite + BusSearch {
                 let r = self.directory_alarm()?;
                 Ok(BusReturn::RomDir(r))
             }
-            BusCmd::Power(_bool) => Ok(BusReturn::Bad),
+            BusCmd::Power(_bool) => todo!(),
+            BusCmd::Compound(cmds) => {
+                let mut rv = Vec::new() ;
+                for c in cmds {
+                    match self.command(c)? {
+                        BusReturn::Bytes(mut v) => {
+                            rv.append(&mut v);
+                        },
+                        _ => (),
+                    }
+                }
+                Ok(BusReturn::Bytes(rv))
+            },
+                        
         }
     }
 }

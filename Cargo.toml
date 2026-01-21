@@ -25,6 +25,8 @@ bytemuck = "1.24"
 serialport = "4.3"
 # Error handling
 anyhow = "1.0"
+# USB support
+rusb = "0.9.4"
 
 [dev-dependencies]
 # Add testing dependencies

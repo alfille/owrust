@@ -45,3 +45,4 @@ pub mod search_state;
 
 pub mod ds9097e;
 pub mod ds9097u;
+pub mod ds9490r;

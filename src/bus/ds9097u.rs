@@ -101,7 +101,7 @@ impl DS9097U {
             .timeout(Duration::from_millis(500))
             .open()
             .context("Failed to open serial port")?;
-        let mut bus = DS9097U {
+        let mut bus = Self {
             port,
             mode: DS2480Mode::Command,
             description: format!("DS9097U serial bus-master at {}", path),
