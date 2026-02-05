@@ -19,9 +19,9 @@ pub trait BusSearch: BusReadWrite {
     /// Send a Match ROM command to select a specific device
     fn select(&mut self, rom: &RomId) -> Result<()> {
         self.reset()?;
-        let mut v = vec![ OneWireCommands::ROM_MATCH, ] ;
-        v.append( rom.as_bytes() ) ;
-        self.write_bytes( v ) ;
+        let mut v = vec![OneWireCommands::ROM_MATCH];
+        v.append(&mut rom.to_vec());
+        let _ = self.write_bytes(v);
         Ok(())
     }
     fn directory_regular(&mut self) -> Result<Vec<RomId>> {

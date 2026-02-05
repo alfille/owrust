@@ -17,11 +17,13 @@ use anyhow::{Context, Result};
 use std::ops::Deref;
 use std::sync::mpsc;
 use std::sync::{OnceLock, RwLock};
+use std::thread::JoinHandle;
 
 /// BusHandle is the external view of the bus
 /// * holds the mpsc handle for sending data
 pub struct BusHandle {
     pub tx: mpsc::Sender<BusQuery>,
+    pub handle: Option<JoinHandle<()>>,
 }
 impl BusHandle {
     pub fn send(&self, cmd: BusCmd) -> Result<BusReturn> {
@@ -32,6 +34,18 @@ impl BusHandle {
             .send(query)
             .context("Unable to clone bus channel")?;
         Ok(my_rx.recv()?)
+    }
+    pub fn close(&mut self) -> Result<()> {
+        if let Some(handle) = self.handle.take() {
+            let _ = self.send(BusCmd::Close);
+            match handle.join() {
+                Ok(_) => (),
+                Err(_) => {
+                    return Err(anyhow::anyhow!("Thread join problem"));
+                }
+            }
+        }
+        Ok(())
     }
 }
 

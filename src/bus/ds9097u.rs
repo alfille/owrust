@@ -16,6 +16,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+use crate::bus_manage::BusManage;
 use crate::bus_rw::BusReadWrite;
 use crate::bus_search::BusSearch;
 use crate::bus_thread::BusThread;
@@ -66,6 +67,7 @@ impl BusThread for DS9097U {
     }
 }
 impl BusSearch for DS9097U {}
+impl BusManage for DS9097U {}
 
 impl DS9097U {
     // Mode Commands

@@ -15,6 +15,7 @@
 
 use crate::bus_rw::BusReadWrite;
 use crate::bus_search::BusSearch;
+use crate::bus_manage::BusManage;
 use crate::bus_thread::BusThread;
 use crate::rom_id::RomId;
 use crate::search_state::ROMSearchState;
@@ -100,8 +101,8 @@ impl BusReadWrite for DS9490R {
         Ok(buf[0])
     }
 }
-impl BusSearch for DS9490R {
-}
+impl BusSearch for DS9490R {}
+impl BusManage for DS9490R {}
 
 impl DS9490R {
     // USE Device

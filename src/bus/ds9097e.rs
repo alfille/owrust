@@ -11,6 +11,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+use crate::bus_manage::BusManage;
 use crate::bus_rw::BusReadWrite;
 use crate::bus_search::BusSearch;
 use crate::bus_spawn::BusSpawn;
@@ -73,6 +74,7 @@ impl BusThread for DS9097E {
     }
 }
 impl BusSearch for DS9097E {}
+impl BusManage for DS9097E {}
 
 impl DS9097E {
     pub fn new<S>(path: S) -> Result<Self>

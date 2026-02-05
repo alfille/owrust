@@ -11,6 +11,7 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
+use crate::bus_manage::BusManage;
 use crate::bus_rw::BusReadWrite;
 use crate::bus_search::BusSearch;
 use crate::rom_id::RomId;
@@ -27,6 +28,7 @@ pub enum BusCmd {
     AlarmSearch,
     Power(bool),
     Compound(Vec<BusCmd>),
+    Close,
 }
 
 pub struct OneWireCommands;
@@ -38,7 +40,7 @@ impl OneWireCommands {
     pub const ROM_ALARM_SEARCH: u8 = 0xEC;
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum BusReturn {
     Bad,
     Good,
@@ -47,10 +49,11 @@ pub enum BusReturn {
     String(String),
     RomDir(Vec<RomId>),
     DevDir(Vec<String>),
+    Close,
 }
 impl BusReturn {
     /// for compound, get the bytes part
-    fn get_bytes( self ) -> Option<Vec<u8>> {
+    fn get_bytes(self) -> Option<Vec<u8>> {
         match self {
             BusReturn::Bytes(b) => Some(b),
             _ => None,
@@ -59,7 +62,7 @@ impl BusReturn {
 }
 
 ///pub trait BusThread: Send + Sync + 'static {
-pub trait BusThread: BusReadWrite + BusSearch {
+pub trait BusThread: BusReadWrite + BusSearch + BusManage {
     fn get_description(&self) -> String;
     fn command(&mut self, cmd: BusCmd) -> Result<BusReturn> {
         match cmd {
@@ -90,18 +93,18 @@ pub trait BusThread: BusReadWrite + BusSearch {
             }
             BusCmd::Power(_bool) => todo!(),
             BusCmd::Compound(cmds) => {
-                let mut rv = Vec::new() ;
+                let mut rv = Vec::new();
                 for c in cmds {
-                    match self.command(c)? {
-                        BusReturn::Bytes(mut v) => {
-                            rv.append(&mut v);
-                        },
-                        _ => (),
+                    if let BusReturn::Bytes(mut v) = self.command(c)? {
+                        rv.append(&mut v);
                     }
                 }
                 Ok(BusReturn::Bytes(rv))
-            },
-                        
+            }
+            BusCmd::Close => {
+                self.close();
+                Ok(BusReturn::Close)
+            }
         }
     }
 }
