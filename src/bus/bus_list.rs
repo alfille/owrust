@@ -49,17 +49,17 @@ impl BusHandle {
     }
 }
 
-pub struct BusList(Vec<BusHandle>);
+pub struct BusList(Vec<RwLock<BusHandle>>);
 impl Deref for BusList {
-    type Target = Vec<BusHandle>;
+    type Target = Vec<RwLock<BusHandle>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 impl IntoIterator for BusList {
-    type Item = BusHandle;
-    type IntoIter = std::vec::IntoIter<BusHandle>;
+    type Item = RwLock<BusHandle>;
+    type IntoIter = std::vec::IntoIter<RwLock<BusHandle>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -68,8 +68,8 @@ impl IntoIterator for BusList {
 
 // Implement for a reference (borrows the struct)
 impl<'a> IntoIterator for &'a BusList {
-    type Item = &'a BusHandle;
-    type IntoIter = std::slice::Iter<'a, BusHandle>;
+    type Item = &'a RwLock<BusHandle>;
+    type IntoIter = std::slice::Iter<'a, RwLock<BusHandle>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
@@ -85,20 +85,29 @@ impl BusList {
     pub fn new() -> Self {
         Self(Vec::new())
     }
-    pub fn add(&mut self, bus: BusHandle) {
+    pub fn add(&mut self, bus: RwLock<BusHandle>) {
         self.0.push(bus)
     }
     pub fn list(&self) -> Vec<String> {
         self.iter()
-            .map(|b| match b.send(BusCmd::Description).unwrap() {
-                BusReturn::String(s) => s,
-                _ => "unknown".to_string(),
+            .map(|b| {
+                match b
+                    .read()
+                    .expect("bus read error")
+                    .send(BusCmd::Description)
+                    .unwrap()
+                {
+                    BusReturn::String(s) => s,
+                    _ => "unknown".to_string(),
+                }
             })
             .collect()
     }
     pub fn broadcast(cmd: BusCmd) -> Vec<Result<BusReturn>> {
         if let Ok(list) = global_buses().read() {
-            list.iter().map(|bus| bus.send(cmd.clone())).collect()
+            list.iter()
+                .map(|bus| bus.read().expect("Bus read error").send(cmd.clone()))
+                .collect()
         } else {
             vec![]
         }
@@ -109,7 +118,9 @@ impl BusList {
     where
         F: Fn(&BusHandle) -> T,
     {
-        self.iter().map(f).collect()
+        self.iter()
+            .map(|h| f(&h.read().expect("bus handle problem")))
+            .collect()
     }
 }
 
@@ -120,10 +131,11 @@ pub static BUSES: OnceLock<RwLock<BusList>> = OnceLock::new();
 pub fn global_buses() -> &'static RwLock<BusList> {
     BUSES.get_or_init(|| RwLock::new(BusList::new()))
 }
+
 pub fn register_bus(handle: BusHandle) -> Result<()> {
     let mut list = global_buses()
         .write()
         .map_err(|_| anyhow::anyhow!("Poisoned lock"))?;
-    list.add(handle);
+    list.add(RwLock::new(handle));
     Ok(())
 }

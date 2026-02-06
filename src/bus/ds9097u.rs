@@ -83,11 +83,15 @@ impl DS9097U {
 
     // Reset Response Codes
     const RESET_PRESENCE: u8 = 0xCD; // Device present
+    #[allow(dead_code)]
     const RESET_NO_PRESENCE: u8 = 0xCC; // No device
+    #[allow(dead_code)]
     const RESET_SHORT: u8 = 0xC1; // Short detected
 
     // Strong Pullup
+    #[allow(dead_code)]
     const STRONG_PULLUP_5V: u8 = 0xED;
+    #[allow(dead_code)]
     const STRONG_PULLUP_12V: u8 = 0xEE;
 
     // 1-Wire ROM Commands (sent in data mode)
@@ -154,6 +158,7 @@ impl DS9097U {
         }
         Ok(())
     }
+    #[allow(dead_code)]
     fn set_speed(&mut self, overdrive: bool) -> Result<()> {
         self.set_command_mode()?;
 

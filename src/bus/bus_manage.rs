@@ -10,12 +10,9 @@
 // MIT Licence
 // {c} 2025 Paul H Alfille
 
-use anyhow::Result;
-
 ///pub trait BusManage
 pub trait BusManage {
     // attempt to close any device handles before deleting this bus master
     fn close(&mut self) {
-        ()
     }
 }

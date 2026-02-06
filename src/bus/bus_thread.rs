@@ -53,6 +53,7 @@ pub enum BusReturn {
 }
 impl BusReturn {
     /// for compound, get the bytes part
+    #[allow(dead_code)]
     fn get_bytes(self) -> Option<Vec<u8>> {
         match self {
             BusReturn::Bytes(b) => Some(b),

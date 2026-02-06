@@ -57,7 +57,7 @@ pub trait BusSpawn {
             };
             while let Ok(req) = rx.recv() {
                 let result = bus.command(req.cmd).unwrap_or(BusReturn::Bad);
-                let closing = result == BusReturn::Close ;
+                let closing = result == BusReturn::Close;
                 let _ = req.my_tx.send(result);
                 if closing {
                     // closed, stop listening and soon stop the thread
