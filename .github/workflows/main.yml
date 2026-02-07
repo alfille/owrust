@@ -40,12 +40,12 @@ jobs:
         id: pages
         uses: actions/configure-pages@v4
 
-     - name: Install system dependencies
+      - name: Install system dependencies
        run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev pkg-config
      
-     - name: Build rustdoc
+      - name: Build rustdoc
         run: |
           cargo doc --no-deps --all-features
           
